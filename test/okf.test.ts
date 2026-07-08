@@ -5,13 +5,11 @@ import { describe, expect, test } from "vitest";
 import {
   buildFrontmatter,
   checkIndexStructure,
-  dropFrontmatterField,
   findInvalidFrontmatter,
   findMissingOkfFields,
   generateRootIndex,
   parseFrontmatter,
   runOkfPass,
-  setFrontmatterField,
   splitFrontmatter,
   stampPage,
   type PageStampResult,
@@ -79,33 +77,6 @@ describe("buildFrontmatter / parseFrontmatter round trip", () => {
     const { frontmatter } = splitFrontmatter(content);
 
     expect(parseFrontmatter(frontmatter)).toBeNull();
-  });
-});
-
-describe("setFrontmatterField / dropFrontmatterField", () => {
-  test("sets a field while preserving the others", () => {
-    const fields = { type: "Reference", title: "T" };
-
-    expect(setFrontmatterField(fields, "resource", "/path.md")).toEqual({
-      type: "Reference",
-      title: "T",
-      resource: "/path.md",
-    });
-    expect(fields).toEqual({ type: "Reference", title: "T" });
-  });
-
-  test("drops a field while preserving the others", () => {
-    const fields = { type: "Reference", title: "T", resource: "/path.md" };
-
-    expect(dropFrontmatterField(fields, "resource")).toEqual({
-      type: "Reference",
-      title: "T",
-    });
-    expect(fields).toEqual({
-      type: "Reference",
-      title: "T",
-      resource: "/path.md",
-    });
   });
 });
 
@@ -201,6 +172,53 @@ describe("stampPage", () => {
     );
 
     expect(fields?.resource).toBe("/src/agent/okf.ts");
+  });
+
+  test("does not truncate the description at an abbreviation like e.g. or i.e.", () => {
+    const content =
+      "# Config\n\nUses e.g. an example value, i.e. a placeholder, before the real sentence ends here.\n";
+
+    const stamped = stampPage("reference/config.md", content, now);
+
+    expect(stamped.description).toBe(
+      "Uses e.g. an example value, i.e. a placeholder, before the real sentence ends here.",
+    );
+  });
+
+  test("ignores a # comment inside a fenced code block when extracting the title", () => {
+    const content = [
+      "```bash",
+      "# Not a heading, just a shell comment",
+      "```",
+      "",
+      "# Real Heading",
+      "",
+      "Body paragraph.",
+      "",
+    ].join("\n");
+
+    const stamped = stampPage("reference/fenced.md", content, now);
+
+    expect(stamped.title).toBe("Real Heading");
+  });
+
+  test("ignores a blank line inside a fenced code block when extracting the description", () => {
+    const content = [
+      "# Fenced Example",
+      "",
+      "```text",
+      "first line",
+      "",
+      "second line after a blank line inside the fence",
+      "```",
+      "",
+      "This is the real first paragraph.",
+      "",
+    ].join("\n");
+
+    const stamped = stampPage("reference/fenced-paragraph.md", content, now);
+
+    expect(stamped.description).toBe("This is the real first paragraph.");
   });
 });
 

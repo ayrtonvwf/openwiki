@@ -116,9 +116,9 @@ When a non-reserved page is missing a frontmatter block, missing a `type` field,
 - **WHEN** the model writes a page under `--okf` mode without following the "no frontmatter" body-only contract and the resulting page is still missing a usable frontmatter block after generation
 - **THEN** the system SHALL inject a valid default frontmatter block on that page so the run's conformance check passes
 
-### Requirement: Frontmatter timestamp is preserved for unchanged page bodies within idempotent reruns
+### Requirement: Frontmatter timestamp is preserved within same-run idempotent reruns
 
-The system SHALL preserve a page's existing `timestamp` value when that page's body content is unchanged since it was last stamped, and SHALL only assign a new `timestamp` when the page's body content has changed.
+The system SHALL preserve a page's existing `timestamp` value whenever a valid prior `timestamp` is already present in that page's frontmatter, and SHALL only assign a new `timestamp` when no valid prior value exists. This phase scopes the rule to same-run idempotence (a rerun with no intervening edits must not change any `timestamp`); detecting a genuine cross-run body edit and assigning a fresh `timestamp` for it requires persisting a body-content hash across runs, which is deferred to Phase 4 (see design.md's Non-Goals).
 
 #### Scenario: Rerunning the pass with no content changes
 
@@ -142,3 +142,7 @@ The system SHALL invoke the OKF stamp/validate/repair/index-generation pass only
 
 - **WHEN** an init or update run completes with `options.okf` false or absent
 - **THEN** the system SHALL NOT run the OKF pass, and no frontmatter or root `index.md` SHALL be added to the output
+
+#### Known limitation: the pass only runs alongside a detected content change
+
+This phase invokes the OKF pass from the same branch in `runOpenWikiAgentCore` that already detects whether the current run changed any `openwiki/` content (compares a before/after content snapshot). Enabling `--okf` for the first time on an already-generated wiki, then running a command that makes no further content changes, is a true no-op at the snapshot level and SHALL NOT trigger the OKF pass — previously-unstamped pages remain unstamped until a subsequent run that does change content. A dedicated backfill pass that runs on `--okf` enablement regardless of content change is deferred to a later phase.

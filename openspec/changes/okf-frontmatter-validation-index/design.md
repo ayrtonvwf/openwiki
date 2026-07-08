@@ -74,6 +74,7 @@ Each mutated file is written to a sibling temp path (e.g. `<file>.okf-tmp-<rando
 - **`description` derived from "first sentence of body" can be low quality if the model's first paragraph isn't a clean summary** → Mitigated by the Phase 2 prompt already asking for a short factual first paragraph; this pass's fallback (naive first-sentence extraction) only applies when that convention isn't followed, and is flagged as a soft warning in the conformance report, not a hard failure.
 - **Directory→type inference can silently misclassify a page placed in an unexpected directory** → Mitigated by the `Reference` fallback + explicit report flag (Decision 3) rather than silent success or a hard failure that blocks the run.
 - **Sharing traversal with `createOpenWikiContentSnapshot` risks behavior drift in the snapshot hash if not done carefully** → Mitigated by extracting only the _walk_ (path listing + skip rules), not the hashing itself, so the snapshot's hash inputs are unchanged.
+- **The pass is gated on the same-run content-snapshot diff, so enabling `--okf` on an already-generated wiki and then running a true no-op update won't stamp existing pages** → Known limitation of this phase's integration point (matches the design's stated hook, not a bug); a dedicated backfill pass that runs on `--okf` enablement regardless of content change is left to a later phase. See spec.md's "Known limitation" note under the pass-gating requirement.
 
 ## Migration Plan
 

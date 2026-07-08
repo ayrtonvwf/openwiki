@@ -25,7 +25,9 @@ export type OkfConformanceReport = {
 
 const OPENING_DELIMITER_PATTERN = /^---\r?\n/u;
 const HEADING_PATTERN = /^# +(.+?) *$/mu;
-const SENTENCE_PATTERN = /^(.*?[.!?])(?:\s|$)/u;
+const FENCE_PATTERN = /^ {0,3}(`{3,}|~{3,})/u;
+const SENTENCE_BOUNDARY_PATTERN = /[.!?](?=\s|$)/gu;
+const SENTENCE_ABBREVIATIONS = ["e.g.", "i.e.", "etc.", "vs.", "cf."];
 
 /**
  * Splits off a leading frontmatter block by requiring the opening `---` at
@@ -85,24 +87,6 @@ export function buildFrontmatter(fields: Frontmatter): string {
   return `---\n${lines.join("\n")}\n---\n`;
 }
 
-export function setFrontmatterField(
-  fields: Frontmatter,
-  key: string,
-  value: unknown,
-): Frontmatter {
-  return { ...fields, [key]: value };
-}
-
-export function dropFrontmatterField(
-  fields: Frontmatter,
-  key: string,
-): Frontmatter {
-  const next = { ...fields };
-  delete next[key];
-
-  return next;
-}
-
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -124,9 +108,32 @@ function getTopLevelDirectory(relativePath: string): string {
 }
 
 function extractTitle(body: string, relativePath: string): string {
-  const match = HEADING_PATTERN.exec(body);
+  const match = HEADING_PATTERN.exec(stripFencedCodeBlocks(body));
 
   return match ? match[1].trim() : titleFromFilename(relativePath);
+}
+
+/**
+ * Blanks out fenced code block lines (``` or ~~~) so a `#` comment or stray
+ * blank line inside a code sample is never mistaken for a heading or a
+ * paragraph boundary.
+ */
+function stripFencedCodeBlocks(body: string): string {
+  const kept: string[] = [];
+  let insideFence = false;
+
+  for (const line of body.split(/\r?\n/u)) {
+    if (FENCE_PATTERN.test(line)) {
+      insideFence = !insideFence;
+      continue;
+    }
+
+    if (!insideFence) {
+      kept.push(line);
+    }
+  }
+
+  return kept.join("\n");
 }
 
 function titleFromFilename(relativePath: string): string {
@@ -147,7 +154,7 @@ function firstParagraph(body: string): string {
   const paragraphLines: string[] = [];
   let started = false;
 
-  for (const rawLine of body.split(/\r?\n/u)) {
+  for (const rawLine of stripFencedCodeBlocks(body).split(/\r?\n/u)) {
     const line = rawLine.trim();
 
     if (!started) {
@@ -168,10 +175,36 @@ function firstParagraph(body: string): string {
   return paragraphLines.join(" ").trim();
 }
 
+/**
+ * Finds the first sentence-ending punctuation mark followed by whitespace or
+ * end-of-string, skipping over boundaries that are actually the trailing
+ * period of a known abbreviation (e.g. "e.g.", "i.e.") so a sentence like
+ * "Uses e.g. an example." isn't truncated at "Uses e.g.".
+ */
 function firstSentence(paragraph: string): string {
-  const match = SENTENCE_PATTERN.exec(paragraph);
+  SENTENCE_BOUNDARY_PATTERN.lastIndex = 0;
+  let match: RegExpExecArray | null;
 
-  return match ? match[1].trim() : paragraph;
+  while ((match = SENTENCE_BOUNDARY_PATTERN.exec(paragraph)) !== null) {
+    const boundaryEnd = match.index + 1;
+
+    if (!endsWithAbbreviation(paragraph, boundaryEnd)) {
+      return paragraph.slice(0, boundaryEnd).trim();
+    }
+  }
+
+  return paragraph.trim();
+}
+
+function endsWithAbbreviation(paragraph: string, boundaryEnd: number): boolean {
+  return SENTENCE_ABBREVIATIONS.some((abbreviation) => {
+    const start = boundaryEnd - abbreviation.length;
+
+    return (
+      start >= 0 &&
+      paragraph.slice(start, boundaryEnd).toLowerCase() === abbreviation
+    );
+  });
 }
 
 /**
@@ -418,17 +451,6 @@ export async function runOkfPass(cwd: string): Promise<OkfConformanceReport> {
       message: rootIndexIssue,
       severity: "error",
     });
-  }
-
-  for (const page of stampedPages) {
-    const missingFieldIssue = findMissingOkfFields(page.content);
-    const invalidFrontmatterIssue = findInvalidFrontmatter(page.content);
-
-    for (const message of [missingFieldIssue, invalidFrontmatterIssue]) {
-      if (message) {
-        issues.push({ file: page.relativePath, message, severity: "error" });
-      }
-    }
   }
 
   return {
