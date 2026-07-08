@@ -31,6 +31,23 @@ jobs:
         with:
           fetch-depth: 1
 
+      # Pre-install deps so Claude can validate its own changes offline.
+      # Without this the sandbox has no node_modules and can't run pnpm install
+      # non-interactively, so every @claude PR ships unvalidated (relying on checks.yml).
+      - name: Set up pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Run Claude Code
         uses: anthropics/claude-code-action@v1
         with:
