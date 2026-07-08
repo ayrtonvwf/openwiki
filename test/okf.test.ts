@@ -13,6 +13,7 @@ import {
   runOkfPass,
   splitFrontmatter,
   stampPage,
+  type OkfState,
   type PageStampResult,
 } from "../src/agent/okf.ts";
 
@@ -530,7 +531,7 @@ describe("runOkfPass", () => {
 
     const state = JSON.parse(
       await readFile(path.join(repo, "openwiki", ".okf-state.json"), "utf8"),
-    );
+    ) as OkfState;
     expect(state.pages["quickstart.md"].timestamp).toBe(staleTimestamp);
   });
 
