@@ -61,16 +61,22 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          model: claude-sonnet-5
+          # The action runs its OWN trigger-phrase check on the comment body, separate
+          # from the job `if:` above. It defaults to @claude and matches on word
+          # boundaries, so it correctly ignores @claude-opus (handled by the opus job).
+          trigger_phrase: "@claude"
+          # The action has NO `model:` input — the model MUST be passed via claude_args
+          # as `--model`, otherwise it is silently ignored (only a warning) and the
+          # default model runs.
           # Give Claude the project's real toolchain so it can validate AND fix its own
           # changes without hitting an approval prompt (CI has no interactive approver).
           # Use ":*" prefix wildcards so both bare and argument forms match — the previous
           # exact-match list rejected `pnpm install --no-frozen-lockfile`, the write-mode
           # `format`/`lint --fix` scripts, `pnpm run test`, the openspec CLI, and gh edits,
           # forcing every @claude PR to ship unformatted and unvalidated.
-          # NOTE: mirrored in the claude-opus job below — keep both allowlists identical.
+          # NOTE: allowlist mirrored in the claude-opus job below — keep both identical.
           claude_args: |
-            --allowedTools "Bash(pnpm install:*),Bash(pnpm run format:*),Bash(pnpm run lint:*),Bash(pnpm run typecheck:*),Bash(pnpm run build:*),Bash(pnpm run coverage:*),Bash(pnpm test:*),Bash(pnpm run test:*),Bash(openspec:*),Bash(mkdir:*),Bash(mv:*),Bash(gh pr create:*),Bash(gh pr edit:*),Bash(gh pr comment:*),Bash(gh pr view:*)"
+            --model claude-sonnet-5 --allowedTools "Bash(pnpm install:*),Bash(pnpm run format:*),Bash(pnpm run lint:*),Bash(pnpm run typecheck:*),Bash(pnpm run build:*),Bash(pnpm run coverage:*),Bash(pnpm test:*),Bash(pnpm run test:*),Bash(openspec:*),Bash(mkdir:*),Bash(mv:*),Bash(gh pr create:*),Bash(gh pr edit:*),Bash(gh pr comment:*),Bash(gh pr view:*)"
 
   claude-opus:
     if: |
@@ -119,13 +125,19 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          model: claude-opus-4-8
+          # REQUIRED: the action re-checks the comment body against this phrase (separate
+          # from the job `if:`), defaulting to @claude. Without this override it finds no
+          # @claude word-boundary match in "@claude-opus" and no-ops after setup.
+          trigger_phrase: "@claude-opus"
+          # The action has NO `model:` input — the model MUST be passed via claude_args
+          # as `--model`, otherwise it is silently ignored (only a warning) and the
+          # default model runs.
           # Give Claude the project's real toolchain so it can validate AND fix its own
           # changes without hitting an approval prompt (CI has no interactive approver).
           # Use ":*" prefix wildcards so both bare and argument forms match — the previous
           # exact-match list rejected `pnpm install --no-frozen-lockfile`, the write-mode
           # `format`/`lint --fix` scripts, `pnpm run test`, the openspec CLI, and gh edits,
           # forcing every @claude-opus PR to ship unformatted and unvalidated.
-          # NOTE: mirrored in the claude job above — keep both allowlists identical.
+          # NOTE: allowlist mirrored in the claude job above — keep both identical.
           claude_args: |
-            --allowedTools "Bash(pnpm install:*),Bash(pnpm run format:*),Bash(pnpm run lint:*),Bash(pnpm run typecheck:*),Bash(pnpm run build:*),Bash(pnpm run coverage:*),Bash(pnpm test:*),Bash(pnpm run test:*),Bash(openspec:*),Bash(mkdir:*),Bash(mv:*),Bash(gh pr create:*),Bash(gh pr edit:*),Bash(gh pr comment:*),Bash(gh pr view:*)"
+            --model claude-opus-4-8 --allowedTools "Bash(pnpm install:*),Bash(pnpm run format:*),Bash(pnpm run lint:*),Bash(pnpm run typecheck:*),Bash(pnpm run build:*),Bash(pnpm run coverage:*),Bash(pnpm test:*),Bash(pnpm run test:*),Bash(openspec:*),Bash(mkdir:*),Bash(mv:*),Bash(gh pr create:*),Bash(gh pr edit:*),Bash(gh pr comment:*),Bash(gh pr view:*)"
