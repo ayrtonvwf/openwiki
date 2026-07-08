@@ -125,10 +125,7 @@ describe("runOpenWikiAgent OKF integration", () => {
     expect(index).toContain('okf_version: "0.1"');
     expect(index).toContain("[Overview](/architecture/overview.md)");
 
-    const log = await readFile(
-      path.join(repo, "openwiki", "log.md"),
-      "utf8",
-    );
+    const log = await readFile(path.join(repo, "openwiki", "log.md"), "utf8");
     expect(log).toMatch(/^- init: /mu);
     expect(log).not.toMatch(/init:\s*init:/u);
   });

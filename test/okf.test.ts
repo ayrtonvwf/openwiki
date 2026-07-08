@@ -646,10 +646,7 @@ describe("runOkfPass", () => {
     );
     await runOkfPass(repo, { command: "update", changeSummary: "second run" });
 
-    const log = await readFile(
-      path.join(repo, "openwiki", "log.md"),
-      "utf8",
-    );
+    const log = await readFile(path.join(repo, "openwiki", "log.md"), "utf8");
     const headingMatches = [...log.matchAll(/^## \d{4}-\d{2}-\d{2}$/gmu)];
 
     expect(headingMatches).toHaveLength(1);
