@@ -10,6 +10,7 @@ export const ANTHROPIC_BASE_URL_ENV_KEY = "ANTHROPIC_BASE_URL";
 export const OPENROUTER_API_KEY_ENV_KEY = "OPENROUTER_API_KEY";
 export const OPENWIKI_PROVIDER_ENV_KEY = "OPENWIKI_PROVIDER";
 export const OPENWIKI_MODEL_ID_ENV_KEY = "OPENWIKI_MODEL_ID";
+export const OPENWIKI_OKF_ENV_KEY = "OPENWIKI_OKF";
 export const DEFAULT_PROVIDER = "openrouter";
 export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
@@ -216,6 +217,19 @@ export function resolveConfiguredProvider(
     normalizeProvider(env[OPENWIKI_PROVIDER_ENV_KEY]) ??
     (env[OPENROUTER_API_KEY_ENV_KEY] ? "openrouter" : DEFAULT_PROVIDER)
   );
+}
+
+/**
+ * OKF output is strictly opt-in: resolves `true` only for recognized truthy
+ * values of {@link OPENWIKI_OKF_ENV_KEY} ("1"/"true", case-insensitive), and
+ * defaults to `false` otherwise.
+ */
+export function resolveOkfEnabled(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  const value = env[OPENWIKI_OKF_ENV_KEY]?.trim().toLowerCase();
+
+  return value === "1" || value === "true";
 }
 
 export function normalizeModelId(value: string): string {

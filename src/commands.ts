@@ -25,6 +25,7 @@ export type CliCommand =
       command: OpenWikiCommand;
       dryRun: boolean;
       modelId: string | null;
+      okf: boolean | null;
       print: boolean;
       shouldStart: boolean;
       userMessage: string | null;
@@ -42,6 +43,7 @@ export function parseCommand(argv: string[]): CliCommand {
 
   let dryRun = false;
   let modelId: string | null = null;
+  let okf: boolean | null = null;
   let print = false;
   let command: OpenWikiCommand = "chat";
   const userMessageParts: string[] = [];
@@ -68,6 +70,16 @@ export function parseCommand(argv: string[]): CliCommand {
 
     if (arg === "--print" || arg === "-p") {
       print = true;
+      continue;
+    }
+
+    if (arg === "--okf") {
+      okf = true;
+      continue;
+    }
+
+    if (arg === "--no-okf") {
+      okf = false;
       continue;
     }
 
@@ -157,6 +169,7 @@ export function parseCommand(argv: string[]): CliCommand {
     command,
     dryRun,
     modelId,
+    okf,
     print,
     shouldStart,
     userMessage,
@@ -202,6 +215,10 @@ export const helpContent: HelpContent = {
       label: "--modelId <id>",
       description: "Use a model ID for this run.",
     },
+    {
+      label: "--okf, --no-okf",
+      description: "Enable or disable OKF output (opt-in, default off).",
+    },
   ],
   developmentOptions: [
     {
@@ -217,6 +234,7 @@ export const helpContent: HelpContent = {
     'openwiki -p "Summarize what OpenWiki can do"',
     "openwiki --modelId gpt-5.5",
     'openwiki --update --modelId gpt-5.5 "Please document the API routes first"',
+    "openwiki --okf --update",
   ],
   developmentExamples: ["openwiki --dry-run"],
 };

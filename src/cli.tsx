@@ -39,6 +39,7 @@ import {
   OPENWIKI_MODEL_ID_ENV_KEY,
   OPEN_WIKI_DIR,
   resolveConfiguredProvider,
+  resolveOkfEnabled,
   SELECTABLE_OPENWIKI_PROVIDERS,
   OPENWIKI_VERSION,
   type OpenWikiProvider,
@@ -116,6 +117,8 @@ function App({ command }: AppProps) {
   const app = useApp();
   const startupModelId = command.kind === "run" ? command.modelId : null;
   const startupProvider = resolveConfiguredProvider();
+  const resolvedOkf =
+    command.kind === "run" ? (command.okf ?? resolveOkfEnabled()) : false;
   const autoExitOnSuccess = shouldAutoExitStartupRun(command);
   const [sessionProvider, setSessionProvider] =
     useState<OpenWikiProvider>(startupProvider);
@@ -292,6 +295,7 @@ function App({ command }: AppProps) {
       debug: isDebugMode(),
       isFollowup: activeMessageIsFollowup,
       modelId: sessionModelId,
+      okf: resolvedOkf,
       threadId: sessionThreadId.current,
       userMessage: activeUserMessage,
       onEvent: (event) => {
@@ -367,6 +371,7 @@ function App({ command }: AppProps) {
     activeMessageIsFollowup,
     activeUserMessage,
     resolvedCommand,
+    resolvedOkf,
     runState.status,
     sessionModelId,
     sessionProvider,
@@ -405,6 +410,7 @@ function App({ command }: AppProps) {
       <DryRunView
         command={command.command}
         modelId={command.modelId}
+        okf={resolvedOkf}
         shouldStart={command.shouldStart}
         userMessage={command.userMessage}
       />
@@ -600,11 +606,13 @@ function HelpView() {
 function DryRunView({
   command,
   modelId,
+  okf,
   shouldStart,
   userMessage,
 }: {
   command: OpenWikiCommand;
   modelId: string | null;
+  okf: boolean;
   shouldStart: boolean;
   userMessage: string | null;
 }) {
@@ -631,6 +639,7 @@ function DryRunView({
             `saved setting or ${getDefaultModelId(resolveConfiguredProvider())}`
           }
         />
+        <StatusLine tone="muted" label="OKF output" value={String(okf)} />
         <StatusLine tone="muted" label="Agent" value="not invoked" />
         <StatusLine tone="muted" label="Writes" value="no files or metadata" />
         <StatusLine tone="muted" label="Output" value={`${OPEN_WIKI_DIR}/`} />
@@ -3013,6 +3022,7 @@ async function runPrintCommand(
       debug: isDebugMode(),
       isFollowup: command.command === "chat",
       modelId: command.modelId,
+      okf: command.okf ?? resolveOkfEnabled(),
       threadId: createOpenWikiThreadId(process.cwd()),
       userMessage: command.userMessage,
       onEvent: (event) => {
