@@ -2,19 +2,22 @@
 
 OpenWiki's agent writes Markdown into `openwiki/` via an LLM-driven DeepAgents run; there is no templating layer, so the prompt is today's only "spec" for output shape. Phase 1 added the `--okf`/`OPENWIKI_OKF` opt-in (`resolveOkfEnabled` in `src/constants.ts`, `okf?: boolean` on `OpenWikiRunOptions`) and the `REPO_DOC_TYPES` taxonomy. Phase 2 added an OKF contract section to `createSystemPrompt` (`src/agent/prompt.ts`) instructing the model to write body-only content (no frontmatter, bundle-relative absolute links, a `# Citations` section, directories matching the taxonomy) and to leave existing frontmatter untouched during edits.
 
-Nothing today parses, validates, or writes frontmatter, and nothing generates a root `index.md`. `specs/openwiki-okf-implementation-report.md` (§4.2, §4.3, §4.5, §7) analyzes VectifyAI/OpenKB as prior art and recommends its central architectural decision: code owns the frontmatter block entirely, the model never emits one, and validation is a *check* rather than the primary conformance mechanism.
+Nothing today parses, validates, or writes frontmatter, and nothing generates a root `index.md`. `specs/openwiki-okf-implementation-report.md` (§4.2, §4.3, §4.5, §7) analyzes VectifyAI/OpenKB as prior art and recommends its central architectural decision: code owns the frontmatter block entirely, the model never emits one, and validation is a _check_ rather than the primary conformance mechanism.
 
 The integration point is `runOpenWikiAgentCore` in `src/agent/index.ts`, which today does:
+
 ```
 if (command !== "chat" && openWikiSnapshotBefore !== (await createOpenWikiContentSnapshot(cwd))) {
   await writeLastUpdateMetadata(command, cwd, modelId);
 }
 ```
+
 This proposal's pass must run in that branch, before or alongside `writeLastUpdateMetadata`, and only when `options.okf === true`.
 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Guarantee, deterministically, that every non-reserved `.md` page under `openwiki/` has parseable frontmatter with a non-empty `type` after any `--okf` run — regardless of what the model did.
 - Generate a spec-conformant root `openwiki/index.md` with `okf_version: "0.1"` and a link to `quickstart.md`.
 - Make the frontmatter block safe against the single known parser bug class (naive `---` scanning truncating on a quoted value that itself contains `---`).
@@ -23,6 +26,7 @@ This proposal's pass must run in that branch, before or alongside `writeLastUpda
 - Keep the pass idempotent on unchanged content — rerunning it must not rewrite files whose stamped fields would be identical, to protect the existing content-snapshot no-op optimization in `src/agent/utils.ts`.
 
 **Non-Goals:**
+
 - Reconciling `timestamp` churn with the content-snapshot no-op check across genuinely-edited pages (Phase 4). This proposal defines the stamping rule that unchanged bodies keep their prior `timestamp`, but does not implement cross-run body-hash tracking beyond straightforward same-run idempotence.
 - `log.md` generation (Phase 4).
 - README/DEVELOPMENT documentation, CI conformance workflow, example workflow changes (Phase 5).
@@ -45,7 +49,7 @@ The `---`/`---` block boundaries are found with a line-anchored regex (`/^---\r?
 
 ### 3. Directory→type inference reuses `REPO_DOC_TYPES` verbatim; unknown directories get a `Reference` fallback, reported but not failed
 
-`REPO_DOC_TYPES` maps type labels to directories (e.g. `Architecture` → `architecture`). This pass inverts that map (directory → type) once at module load. A page whose top-level directory doesn't match any entry (including pages the model placed in an unanticipated directory) is stamped with the `Reference` type as a safe default and flagged in the conformance report as "type inferred by fallback, verify directory placement" — never left without a `type`, since OKF's one hard requirement is that the field be non-empty, and unknown *values* are spec-tolerated per §9, but a *missing* field is not.
+`REPO_DOC_TYPES` maps type labels to directories (e.g. `Architecture` → `architecture`). This pass inverts that map (directory → type) once at module load. A page whose top-level directory doesn't match any entry (including pages the model placed in an unanticipated directory) is stamped with the `Reference` type as a safe default and flagged in the conformance report as "type inferred by fallback, verify directory placement" — never left without a `type`, since OKF's one hard requirement is that the field be non-empty, and unknown _values_ are spec-tolerated per §9, but a _missing_ field is not.
 
 ### 4. Reserved-file handling is explicit, not inferred from a naming convention search
 
@@ -69,7 +73,7 @@ Each mutated file is written to a sibling temp path (e.g. `<file>.okf-tmp-<rando
 - **Full re-stamp on every run risks rewriting files that only need one field touched, generating noisy diffs** → Mitigated by the idempotence rule (§ Decision 1): unchanged bodies produce byte-for-byte identical frontmatter, so the atomic-write helper's write is a no-op comparison away from a real write; no file is rewritten unless its resolved frontmatter actually changed.
 - **`description` derived from "first sentence of body" can be low quality if the model's first paragraph isn't a clean summary** → Mitigated by the Phase 2 prompt already asking for a short factual first paragraph; this pass's fallback (naive first-sentence extraction) only applies when that convention isn't followed, and is flagged as a soft warning in the conformance report, not a hard failure.
 - **Directory→type inference can silently misclassify a page placed in an unexpected directory** → Mitigated by the `Reference` fallback + explicit report flag (Decision 3) rather than silent success or a hard failure that blocks the run.
-- **Sharing traversal with `createOpenWikiContentSnapshot` risks behavior drift in the snapshot hash if not done carefully** → Mitigated by extracting only the *walk* (path listing + skip rules), not the hashing itself, so the snapshot's hash inputs are unchanged.
+- **Sharing traversal with `createOpenWikiContentSnapshot` risks behavior drift in the snapshot hash if not done carefully** → Mitigated by extracting only the _walk_ (path listing + skip rules), not the hashing itself, so the snapshot's hash inputs are unchanged.
 
 ## Migration Plan
 

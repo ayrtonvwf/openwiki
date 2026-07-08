@@ -17,9 +17,11 @@ OpenWiki's `--okf` mode today relies entirely on the model following a prompt co
 ## Capabilities
 
 ### New Capabilities
+
 - `okf-conformance`: the deterministic stamp → validate → repair → `index.md` pass that guarantees `--okf` output conforms to OKF v0.1 §9, including the frontmatter helper module, the type/title/description/timestamp stamping rules, the validator, the repair path, root `index.md` generation, and the conformance report.
 
 ### Modified Capabilities
+
 - (none — Phase 1/2 plumbing and prompt contract are unchanged by this proposal)
 
 ## Impact
