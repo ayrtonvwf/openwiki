@@ -2,9 +2,6 @@ name: OpenWiki Update
 
 on:
   workflow_dispatch:
-  schedule:
-    # GitHub schedules use UTC; 08:00 UTC is midnight PST.
-    - cron: "0 8 * * *"
 
 permissions:
   contents: write
