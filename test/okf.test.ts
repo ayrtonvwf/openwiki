@@ -1,10 +1,18 @@
-import { mkdir, mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 import {
   buildFrontmatter,
   checkIndexStructure,
+  checkLogStructure,
   findInvalidFrontmatter,
   findMissingOkfFields,
   generateRootIndex,
@@ -12,6 +20,7 @@ import {
   runOkfPass,
   splitFrontmatter,
   stampPage,
+  type OkfState,
   type PageStampResult,
 } from "../src/agent/okf.ts";
 
@@ -294,6 +303,8 @@ describe("generateRootIndex", () => {
         description: "Start here.",
         type: "Repository Overview",
         typeIsFallback: false,
+        bodyHash: "hash-quickstart",
+        timestamp: "2026-07-08T00:00:00.000Z",
       },
       {
         relativePath: "architecture/overview.md",
@@ -302,6 +313,8 @@ describe("generateRootIndex", () => {
         description: "Explains the architecture.",
         type: "Architecture",
         typeIsFallback: false,
+        bodyHash: "hash-overview",
+        timestamp: "2026-07-08T00:00:00.000Z",
       },
     ];
 
@@ -323,10 +336,28 @@ describe("generateRootIndex", () => {
         description: "Start here.",
         type: "Repository Overview",
         typeIsFallback: false,
+        bodyHash: "hash-quickstart",
+        timestamp: "2026-07-08T00:00:00.000Z",
       },
     ]);
 
     expect(index).not.toContain("architecture/overview.md");
+  });
+});
+
+describe("checkLogStructure", () => {
+  test("rejects a log.md carrying a frontmatter block", () => {
+    expect(
+      checkLogStructure("log.md", '---\ntype: "Reference"\n---\nBody\n'),
+    ).toMatch(/frontmatter/u);
+  });
+
+  test("accepts a log.md with no frontmatter block", () => {
+    expect(checkLogStructure("log.md", "# Change Log\n")).toBeNull();
+  });
+
+  test("ignores non-log files", () => {
+    expect(checkLogStructure("architecture/overview.md", "Body\n")).toBeNull();
   });
 });
 
@@ -349,11 +380,13 @@ async function createOpenWikiFixture(): Promise<string> {
   return repo;
 }
 
+const TEST_RUN_INFO = { command: "init" as const, changeSummary: "test run" };
+
 describe("runOkfPass", () => {
   test("stamps pages, generates root index.md, and reports conformance", async () => {
     const repo = await createOpenWikiFixture();
 
-    const report = await runOkfPass(repo);
+    const report = await runOkfPass(repo, TEST_RUN_INFO);
 
     expect(report.conformant).toBe(true);
     expect(report.issues).toEqual([]);
@@ -379,7 +412,7 @@ describe("runOkfPass", () => {
   test("is idempotent: a second run with no edits leaves files byte-for-byte unchanged", async () => {
     const repo = await createOpenWikiFixture();
 
-    await runOkfPass(repo);
+    await runOkfPass(repo, TEST_RUN_INFO);
 
     const quickstartPath = path.join(repo, "openwiki", "quickstart.md");
     const overviewPath = path.join(
@@ -397,7 +430,7 @@ describe("runOkfPass", () => {
       quickstartMtime: (await stat(quickstartPath)).mtimeMs,
     };
 
-    const secondReport = await runOkfPass(repo);
+    const secondReport = await runOkfPass(repo, TEST_RUN_INFO);
 
     expect(secondReport.conformant).toBe(true);
     expect(await readFile(quickstartPath, "utf8")).toBe(before.quickstart);
@@ -420,7 +453,7 @@ describe("runOkfPass", () => {
       "utf8",
     );
 
-    const report = await runOkfPass(repo);
+    const report = await runOkfPass(repo, TEST_RUN_INFO);
 
     expect(report.conformant).toBe(true);
     expect(report.issues).toContainEqual(
@@ -429,5 +462,274 @@ describe("runOkfPass", () => {
         severity: "warning",
       }),
     );
+  });
+
+  test("assigns a fresh timestamp only to a page whose body genuinely changed across runs", async () => {
+    const repo = await createOpenWikiFixture();
+    const overviewPath = path.join(
+      repo,
+      "openwiki",
+      "architecture",
+      "overview.md",
+    );
+
+    await runOkfPass(repo, TEST_RUN_INFO);
+    const quickstartAfterFirst = parseFrontmatter(
+      splitFrontmatter(
+        await readFile(path.join(repo, "openwiki", "quickstart.md"), "utf8"),
+      ).frontmatter,
+    );
+    const overviewAfterFirst = parseFrontmatter(
+      splitFrontmatter(await readFile(overviewPath, "utf8")).frontmatter,
+    );
+
+    await writeFile(
+      overviewPath,
+      "# Overview\n\nDescribes the system architecture, now revised.\n",
+      "utf8",
+    );
+
+    await runOkfPass(repo, TEST_RUN_INFO);
+    const quickstartAfterSecond = parseFrontmatter(
+      splitFrontmatter(
+        await readFile(path.join(repo, "openwiki", "quickstart.md"), "utf8"),
+      ).frontmatter,
+    );
+    const overviewAfterSecond = parseFrontmatter(
+      splitFrontmatter(await readFile(overviewPath, "utf8")).frontmatter,
+    );
+
+    expect(quickstartAfterSecond?.timestamp).toBe(
+      quickstartAfterFirst?.timestamp,
+    );
+    expect(overviewAfterSecond?.timestamp).not.toBe(
+      overviewAfterFirst?.timestamp,
+    );
+  });
+
+  test("migration: seeds state from an existing frontmatter timestamp instead of bumping it", async () => {
+    const repo = await createOpenWikiFixture();
+    const quickstartPath = path.join(repo, "openwiki", "quickstart.md");
+    const staleTimestamp = "2020-01-01T00:00:00.000Z";
+
+    await writeFile(
+      quickstartPath,
+      [
+        "---",
+        'type: "Repository Overview"',
+        'title: "Quickstart"',
+        'description: "Old description."',
+        `timestamp: "${staleTimestamp}"`,
+        "---",
+        "# Quickstart",
+        "",
+        "A short factual intro sentence.",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+
+    await runOkfPass(repo, TEST_RUN_INFO);
+
+    const fields = parseFrontmatter(
+      splitFrontmatter(await readFile(quickstartPath, "utf8")).frontmatter,
+    );
+    expect(fields?.timestamp).toBe(staleTimestamp);
+
+    const state = JSON.parse(
+      await readFile(path.join(repo, "openwiki", ".okf-state.json"), "utf8"),
+    ) as OkfState;
+    expect(state.pages["quickstart.md"].timestamp).toBe(staleTimestamp);
+  });
+
+  test("preserves a producer-added frontmatter key across re-stamps with deterministic key order", async () => {
+    const repo = await createOpenWikiFixture();
+    const overviewPath = path.join(
+      repo,
+      "openwiki",
+      "architecture",
+      "overview.md",
+    );
+
+    await writeFile(
+      overviewPath,
+      [
+        "---",
+        'resource: "/src/agent/okf.ts"',
+        'type: "Reference"',
+        "---",
+        "# Overview",
+        "",
+        "Describes the system architecture.",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+
+    await runOkfPass(repo, TEST_RUN_INFO);
+
+    const stamped = await readFile(overviewPath, "utf8");
+    const { frontmatter } = splitFrontmatter(stamped);
+    const fields = parseFrontmatter(frontmatter);
+
+    expect(fields?.resource).toBe("/src/agent/okf.ts");
+    expect(frontmatter?.trimStart().startsWith("type:")).toBe(true);
+
+    const secondReport = await runOkfPass(repo, TEST_RUN_INFO);
+    expect(secondReport.conformant).toBe(true);
+    expect(await readFile(overviewPath, "utf8")).toBe(stamped);
+  });
+
+  test("a no-op update (no body edits) leaves pages, index.md, the state file, and log.md byte-for-byte unchanged", async () => {
+    const repo = await createOpenWikiFixture();
+
+    await runOkfPass(repo, TEST_RUN_INFO);
+
+    const statePath = path.join(repo, "openwiki", ".okf-state.json");
+    const logPath = path.join(repo, "openwiki", "log.md");
+    const before = {
+      state: await readFile(statePath, "utf8"),
+      stateMtime: (await stat(statePath)).mtimeMs,
+      log: await readFile(logPath, "utf8"),
+      logMtime: (await stat(logPath)).mtimeMs,
+    };
+
+    const secondReport = await runOkfPass(repo, TEST_RUN_INFO);
+
+    expect(secondReport.conformant).toBe(true);
+    expect(await readFile(statePath, "utf8")).toBe(before.state);
+    expect((await stat(statePath)).mtimeMs).toBe(before.stateMtime);
+    expect(await readFile(logPath, "utf8")).toBe(before.log);
+    expect((await stat(logPath)).mtimeMs).toBe(before.logMtime);
+  });
+
+  test("prepends a dated, newest-first log.md entry on a content-changing run without a frontmatter block", async () => {
+    const repo = await createOpenWikiFixture();
+
+    await runOkfPass(repo, {
+      command: "init",
+      changeSummary: "initial generation",
+    });
+
+    const logPath = path.join(repo, "openwiki", "log.md");
+    const firstLog = await readFile(logPath, "utf8");
+    expect(checkLogStructure("log.md", firstLog)).toBeNull();
+    expect(firstLog).toContain("init: initial generation");
+
+    await writeFile(
+      path.join(repo, "openwiki", "architecture", "overview.md"),
+      "# Overview\n\nDescribes the system architecture, revised.\n",
+      "utf8",
+    );
+
+    await runOkfPass(repo, {
+      command: "update",
+      changeSummary: "revised overview",
+    });
+
+    const secondLog = await readFile(logPath, "utf8");
+    expect(secondLog).toContain("update: revised overview");
+    expect(secondLog).toContain("init: initial generation");
+    expect(secondLog.indexOf("update: revised overview")).toBeLessThan(
+      secondLog.indexOf("init: initial generation"),
+    );
+  });
+
+  test("groups same-day entries under one heading, newest entry first", async () => {
+    const repo = await createOpenWikiFixture();
+
+    await runOkfPass(repo, { command: "init", changeSummary: "first run" });
+    await writeFile(
+      path.join(repo, "openwiki", "architecture", "overview.md"),
+      "# Overview\n\nDescribes the system architecture, revised again.\n",
+      "utf8",
+    );
+    await runOkfPass(repo, { command: "update", changeSummary: "second run" });
+
+    const log = await readFile(path.join(repo, "openwiki", "log.md"), "utf8");
+    const headingMatches = [...log.matchAll(/^## \d{4}-\d{2}-\d{2}$/gmu)];
+
+    expect(headingMatches).toHaveLength(1);
+    expect(log.indexOf("update: second run")).toBeLessThan(
+      log.indexOf("init: first run"),
+    );
+  });
+
+  test("prunes state entries for pages that no longer exist", async () => {
+    const repo = await createOpenWikiFixture();
+    const overviewPath = path.join(
+      repo,
+      "openwiki",
+      "architecture",
+      "overview.md",
+    );
+    const statePath = path.join(repo, "openwiki", ".okf-state.json");
+
+    await runOkfPass(repo, TEST_RUN_INFO);
+    const stateAfterFirst = JSON.parse(
+      await readFile(statePath, "utf8"),
+    ) as OkfState;
+    expect(stateAfterFirst.pages["architecture/overview.md"]).toBeDefined();
+
+    await rm(overviewPath);
+    await runOkfPass(repo, TEST_RUN_INFO);
+
+    const stateAfterSecond = JSON.parse(
+      await readFile(statePath, "utf8"),
+    ) as OkfState;
+    expect(stateAfterSecond.pages["architecture/overview.md"]).toBeUndefined();
+    expect(stateAfterSecond.pages["quickstart.md"]).toBeDefined();
+  });
+
+  test("tolerates a corrupt state file by falling back to empty state instead of failing the pass", async () => {
+    const repo = await createOpenWikiFixture();
+
+    await mkdir(path.join(repo, "openwiki"), { recursive: true });
+    await writeFile(
+      path.join(repo, "openwiki", ".okf-state.json"),
+      "{ not valid json",
+      "utf8",
+    );
+
+    const report = await runOkfPass(repo, TEST_RUN_INFO);
+
+    expect(report.conformant).toBe(true);
+
+    const state = JSON.parse(
+      await readFile(path.join(repo, "openwiki", ".okf-state.json"), "utf8"),
+    ) as OkfState;
+    expect(state.pages["quickstart.md"]).toBeDefined();
+  });
+
+  test("re-stamps a page with an unquoted producer key byte-for-byte identically on the second run", async () => {
+    const repo = await createOpenWikiFixture();
+    const overviewPath = path.join(
+      repo,
+      "openwiki",
+      "architecture",
+      "overview.md",
+    );
+
+    await writeFile(
+      overviewPath,
+      [
+        "---",
+        "resource: /src/agent/okf.ts",
+        "---",
+        "# Overview",
+        "",
+        "Describes the system architecture.",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+
+    await runOkfPass(repo, TEST_RUN_INFO);
+    const stampedOnce = await readFile(overviewPath, "utf8");
+
+    await runOkfPass(repo, TEST_RUN_INFO);
+    const stampedTwice = await readFile(overviewPath, "utf8");
+
+    expect(stampedTwice).toBe(stampedOnce);
   });
 });
