@@ -25,7 +25,7 @@ The rest of this report maps each requested capability to concrete source files 
 From the [OKF v0.1 draft spec](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md), a bundle is a directory tree of Markdown files. The normative conformance bar (spec §9) is deliberately tiny:
 
 1. Every non-reserved `.md` file contains a **parseable YAML frontmatter block**.
-2. Every frontmatter block contains a **non-empty `type` field**. (This is the *only* required field.)
+2. Every frontmatter block contains a **non-empty `type` field**. (This is the _only_ required field.)
 3. Reserved filenames (`index.md`, `log.md`) follow their prescribed structure when present.
 
 Everything else is soft guidance. Consumers must tolerate unknown types, missing optional fields, unknown extra keys, and broken links. Key structural facts relevant to OpenWiki:
@@ -42,7 +42,7 @@ The proposal in the issue maps cleanly onto these: YAML frontmatter, a stable ty
 
 ## 3. Where OpenWiki stands today (gap analysis)
 
-OpenWiki is a TypeScript CLI (`src/cli.tsx`) that drives a DeepAgents-based documentation agent. The agent is instructed entirely through a system/user prompt pair built in `src/agent/prompt.ts`; the model then uses filesystem tools to write Markdown into `openwiki/`. There is no deterministic templating layer that formats pages — the *prompt* is the spec for the output. This is the single most important architectural fact for this feature: **to change the output format, you primarily change the prompt, then add a deterministic guardrail pass.**
+OpenWiki is a TypeScript CLI (`src/cli.tsx`) that drives a DeepAgents-based documentation agent. The agent is instructed entirely through a system/user prompt pair built in `src/agent/prompt.ts`; the model then uses filesystem tools to write Markdown into `openwiki/`. There is no deterministic templating layer that formats pages — the _prompt_ is the spec for the output. This is the single most important architectural fact for this feature: **to change the output format, you primarily change the prompt, then add a deterministic guardrail pass.**
 
 Current output (observed in the repo's own `openwiki/` tree):
 
@@ -56,18 +56,18 @@ openwiki/
 └── operations/credentials-and-updates.md
 ```
 
-| OKF requirement | OpenWiki today | Gap |
-|---|---|---|
-| YAML frontmatter on every concept page | Pages are pure Markdown, no frontmatter (see `architecture/overview.md`) | **Yes — primary gap** |
-| Non-empty `type` on every page | No type metadata exists | **Yes** |
-| Root `index.md` + `okf_version` declaration | Entry point is `quickstart.md`, no `index.md`, no version key | **Yes** |
-| Reserved `index.md` per directory (progressive disclosure) | Navigation is via prose links in `quickstart.md` | Partial |
-| Bundle-relative absolute cross-links (`/dir/page.md`) | Prompt asks for "stable links" but not `/`-rooted convention | Minor |
-| `log.md` update history | History lives in `.last-update.json` (machine JSON, not OKF `log.md`) | Optional gap |
-| Conventional headings (`# Schema`, `# Examples`, `# Citations`) | Uses ad-hoc headings (`# Source map`, `# Things to watch`) | Cosmetic |
-| Metadata preserved across incremental updates | `.last-update.json` snapshot logic exists in `src/agent/utils.ts` | Reusable foundation |
-| Validation / conformance check | None | **Yes** |
-| Backward-compatible opt-in | Everything is single-format today | **Yes — needs a flag** |
+| OKF requirement                                                 | OpenWiki today                                                           | Gap                    |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------ | ---------------------- |
+| YAML frontmatter on every concept page                          | Pages are pure Markdown, no frontmatter (see `architecture/overview.md`) | **Yes — primary gap**  |
+| Non-empty `type` on every page                                  | No type metadata exists                                                  | **Yes**                |
+| Root `index.md` + `okf_version` declaration                     | Entry point is `quickstart.md`, no `index.md`, no version key            | **Yes**                |
+| Reserved `index.md` per directory (progressive disclosure)      | Navigation is via prose links in `quickstart.md`                         | Partial                |
+| Bundle-relative absolute cross-links (`/dir/page.md`)           | Prompt asks for "stable links" but not `/`-rooted convention             | Minor                  |
+| `log.md` update history                                         | History lives in `.last-update.json` (machine JSON, not OKF `log.md`)    | Optional gap           |
+| Conventional headings (`# Schema`, `# Examples`, `# Citations`) | Uses ad-hoc headings (`# Source map`, `# Things to watch`)               | Cosmetic               |
+| Metadata preserved across incremental updates                   | `.last-update.json` snapshot logic exists in `src/agent/utils.ts`        | Reusable foundation    |
+| Validation / conformance check                                  | None                                                                     | **Yes**                |
+| Backward-compatible opt-in                                      | Everything is single-format today                                        | **Yes — needs a flag** |
 
 Net: three substantive gaps (frontmatter+type, root index/version, validation), one config gap (opt-in), and several cosmetic alignments.
 
@@ -87,11 +87,11 @@ Threading: `src/cli.tsx` passes the resolved boolean into the agent run options 
 
 ### 4.2 Frontmatter generation (the core change)
 
-There are two ways to get frontmatter onto every page: instruct the model to write it, or have code stamp it. **The reference implementation in this space (VectifyAI/OpenKB — see §7) deliberately does the latter, and the evidence strongly favors that choice.** OpenKB's own page schema tells the model, verbatim: *"Frontmatter (managed by code — do NOT emit it in generated content) … Do not include YAML frontmatter (---) in generated content; it is managed by code."* The model writes the Markdown body only; a deterministic pass owns the entire `---` block. This makes conformance a property of the tool rather than of the model's consistency, and it neatly sidesteps the `timestamp`-churn problem in §4.6.
+There are two ways to get frontmatter onto every page: instruct the model to write it, or have code stamp it. **The reference implementation in this space (VectifyAI/OpenKB — see §7) deliberately does the latter, and the evidence strongly favors that choice.** OpenKB's own page schema tells the model, verbatim: _"Frontmatter (managed by code — do NOT emit it in generated content) … Do not include YAML frontmatter (---) in generated content; it is managed by code."_ The model writes the Markdown body only; a deterministic pass owns the entire `---` block. This makes conformance a property of the tool rather than of the model's consistency, and it neatly sidesteps the `timestamp`-churn problem in §4.6.
 
 Recommended design for OpenWiki, mirroring that pattern:
 
-1. **Prompt change is subtractive, not additive.** When OKF is enabled, `createSystemPrompt(command, { okf })` in `src/agent/prompt.ts` instructs the model to write body content only (headings, prose, tables), to use bundle-relative absolute links (`/architecture/overview.md`), conventional headings, and a `# Citations` section — and to *not* emit a YAML frontmatter block, because the tool will add it. Optionally, the prompt asks the model to put a one-line summary as the first paragraph so code can lift it into `description`.
+1. **Prompt change is subtractive, not additive.** When OKF is enabled, `createSystemPrompt(command, { okf })` in `src/agent/prompt.ts` instructs the model to write body content only (headings, prose, tables), to use bundle-relative absolute links (`/architecture/overview.md`), conventional headings, and a `# Citations` section — and to _not_ emit a YAML frontmatter block, because the tool will add it. Optionally, the prompt asks the model to put a one-line summary as the first paragraph so code can lift it into `description`.
 2. **Code owns the frontmatter block.** A new deterministic module (`src/agent/okf.ts`, §4.5) runs after the agent completes and, for every non-reserved page, stamps/refreshes the block:
    - `type` — **inferred from the page's directory** via the taxonomy (§4.4). OpenKB infers type from the subdir (`summaries/`→`Summary`, `concepts/`→`Concept`, etc.); OpenWiki maps `architecture/`→`Architecture`, `operations/`→`Operations`, and so on.
    - `title` — derived from the first `#` heading (fall back to filename).
@@ -99,7 +99,7 @@ Recommended design for OpenWiki, mirroring that pattern:
    - `timestamp` — set by code (ISO-8601), preserved for unchanged bodies (§4.6).
    - `resource` — added only where a page maps to a concrete asset.
 
-This inverts my earlier "prompt-first, validator-as-safety-net" framing: OpenKB shows that **prompt-never-touches-frontmatter, code-always-does** is simpler and more robust. The validator (§4.5) then only has to *check*, and repair is rarely needed because generation is deterministic.
+This inverts my earlier "prompt-first, validator-as-safety-net" framing: OpenKB shows that **prompt-never-touches-frontmatter, code-always-does** is simpler and more robust. The validator (§4.5) then only has to _check_, and repair is rarely needed because generation is deterministic.
 
 ### 4.3 Root `index.md` and version declaration
 
@@ -114,20 +114,20 @@ Note a required tweak to the entrypoint contract: today the prompt hard-requires
 
 OKF does not register types centrally (spec §4.1), but the issue asks for a "stable repository-documentation type taxonomy" so OpenWiki output is internally consistent and predictable for consumers. Define this as a constant in `src/constants.ts`, e.g.:
 
-| `type` value | Applied to |
-|---|---|
-| `Repository Overview` | Root/quickstart landing content |
-| `Architecture` | System/architecture pages |
-| `Workflow` | Process/agent-workflow pages |
-| `Domain Concept` | Business/domain model pages |
-| `API Reference` | API/route/interface docs |
-| `Data Model` | Schema/storage pages |
-| `Operations` | Ops, credentials, deployment, runbooks |
-| `Integration` | Third-party/provider integrations |
-| `Testing` | Test/eval guidance |
-| `Reference` | Source maps and miscellaneous references |
+| `type` value          | Applied to                               |
+| --------------------- | ---------------------------------------- |
+| `Repository Overview` | Root/quickstart landing content          |
+| `Architecture`        | System/architecture pages                |
+| `Workflow`            | Process/agent-workflow pages             |
+| `Domain Concept`      | Business/domain model pages              |
+| `API Reference`       | API/route/interface docs                 |
+| `Data Model`          | Schema/storage pages                     |
+| `Operations`          | Ops, credentials, deployment, runbooks   |
+| `Integration`         | Third-party/provider integrations        |
+| `Testing`             | Test/eval guidance                       |
+| `Reference`           | Source maps and miscellaneous references |
 
-The taxonomy should be surfaced in the prompt (so the model picks from it) and enumerated in the validator (as the *suggested* set, while still tolerating unknown types to stay spec-compliant). Keeping it a single exported constant means adding a type later is a one-line change, matching how `PROVIDER_CONFIGS` centralizes provider support.
+The taxonomy should be surfaced in the prompt (so the model picks from it) and enumerated in the validator (as the _suggested_ set, while still tolerating unknown types to stay spec-compliant). Keeping it a single exported constant means adding a type later is a one-line change, matching how `PROVIDER_CONFIGS` centralizes provider support.
 
 ### 4.5 Validation and normalization
 
@@ -138,7 +138,7 @@ Add a deterministic module, e.g. `src/agent/okf.ts`, run after the agent complet
 - **Normalize/repair** where safe: if a page is missing frontmatter or `type`, inject a default block (deriving `title` from the first `#` heading or filename, inferring `type` from the directory name via the taxonomy, stamping `timestamp`). This guarantees conformance even when the model forgets.
 - **Report**: emit a conformance summary (pass/fail + per-file issues) to the run output, and optionally fail non-interactive/CI runs with a non-zero exit when `--okf` is set and repair is disabled.
 
-This maps almost one-to-one onto OpenKB's `openkb/lint.py`, which is worth reading as a template (§7). Its `find_missing_okf_fields()` is literally an OKF check — *"OKF v0.1 requires every non-reserved knowledge page to carry a non-empty `type`"* — scoped to content directories and exempting `index.md`/`log.md`/`sources/`. Its `find_invalid_frontmatter()` catches the exact failure mode to worry about: a value like an unquoted colon-bearing `description:` that OpenWiki's own string-slicing might tolerate but that external YAML-aware consumers reject. Its `check_index_sync()` verifies `index.md` links resolve and that every content page is listed. And `run_structural_lint()` emits a Markdown report with a dedicated "OKF Conformance" section. OpenWiki's `okf.ts` should provide the TypeScript equivalents of these four checks.
+This maps almost one-to-one onto OpenKB's `openkb/lint.py`, which is worth reading as a template (§7). Its `find_missing_okf_fields()` is literally an OKF check — _"OKF v0.1 requires every non-reserved knowledge page to carry a non-empty `type`"_ — scoped to content directories and exempting `index.md`/`log.md`/`sources/`. Its `find_invalid_frontmatter()` catches the exact failure mode to worry about: a value like an unquoted colon-bearing `description:` that OpenWiki's own string-slicing might tolerate but that external YAML-aware consumers reject. Its `check_index_sync()` verifies `index.md` links resolve and that every content page is listed. And `run_structural_lint()` emits a Markdown report with a dedicated "OKF Conformance" section. OpenWiki's `okf.ts` should provide the TypeScript equivalents of these four checks.
 
 Dependencies: a YAML parser is needed. Check `pnpm-lock.yaml`/`package.json` for an existing one (LangChain/DeepAgents pull in transitive deps); otherwise add a small, well-scoped library such as `yaml` or `gray-matter` (frontmatter-aware). Keep the footprint minimal — OKF's whole ethos is "just markdown, just YAML frontmatter, no SDK." One robustness detail to copy from OpenKB's `frontmatter.py`: match the closing `---` **anchored to the start of a line** (`\n---`), never with a naive `indexOf("---", 3)`, so a `---` inside a quoted value can't truncate the block; and serialize scalar values as JSON (a strict subset of YAML) to guarantee single-line, correctly-escaped values that round-trip through `safe_load`.
 
@@ -164,21 +164,21 @@ Optionally, generate OKF `log.md` files from the same change information already
 
 ## 5. File-by-file change map
 
-| File | Change |
-|---|---|
-| `src/commands.ts` | Parse `--okf` / `--no-okf`; add `okf: boolean` to the `run` `CliCommand`; add help rows + example. |
-| `src/constants.ts` | Add `OPENWIKI_OKF_ENV_KEY`, `OKF_VERSION = "0.1"`, the `REPO_DOC_TYPES` taxonomy constant, and a `resolveOkfEnabled()` helper. |
-| `src/env.ts` | Add `OPENWIKI_OKF` to `managedEnvKeys` so it persists to `~/.openwiki/.env` and appears in diagnostics. |
-| `src/cli.tsx` | Resolve the OKF setting (flag > env > default) and pass it into the agent run options; surface it in dry-run output. |
-| `src/agent/types.ts` | Add `okf?: boolean` to `OpenWikiRunOptions`; consider an `okfConformant?: boolean` on `OpenWikiRunResult`. |
-| `src/agent/prompt.ts` | Thread the OKF flag into `createSystemPrompt`; append the OKF output-contract section (frontmatter rules, taxonomy, absolute links, conventional headings, update-mode frontmatter-preservation rule). |
-| `src/agent/index.ts` | Forward the flag to the prompt builder; after a successful run, invoke the OKF validator/normalizer and (optionally) `index.md`/`log.md` generation before/around `writeLastUpdateMetadata`. |
-| `src/agent/utils.ts` | Reuse the directory walk; optionally factor the traversal so the OKF module can share it; add body-hash-aware `timestamp` preservation if implementing §4.6.2. |
-| `src/agent/okf.ts` *(new)* | **Owns frontmatter**: parse/split/set/drop helpers (model `src/agent/frontmatter.ts` on OpenKB's `frontmatter.py`), deterministic stamping of `type`/`title`/`description`/`timestamp`, conformance validation (OKF §9), safe repair, deterministic `index.md` generation with `okf_version`, optional `log.md` generation, atomic writes, conformance reporting. Direct references: OpenKB `frontmatter.py` + `lint.py`. |
-| `package.json` / `pnpm-lock.yaml` | Add a frontmatter/YAML dependency if none is already available transitively. |
-| `README.md` / `DEVELOPMENT.md` | Document the `--okf` flag, the taxonomy, and conformance guarantees. |
-| `examples/openwiki-update.yml` | Optionally show `--okf` usage in the scheduled-update GitHub Action. |
-| Tests | Unit-test the parser, validator, normalizer, and `index.md` generator; add a conformance fixture bundle. |
+| File                              | Change                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/commands.ts`                 | Parse `--okf` / `--no-okf`; add `okf: boolean` to the `run` `CliCommand`; add help rows + example.                                                                                                                                                                                                                                                                                                                        |
+| `src/constants.ts`                | Add `OPENWIKI_OKF_ENV_KEY`, `OKF_VERSION = "0.1"`, the `REPO_DOC_TYPES` taxonomy constant, and a `resolveOkfEnabled()` helper.                                                                                                                                                                                                                                                                                            |
+| `src/env.ts`                      | Add `OPENWIKI_OKF` to `managedEnvKeys` so it persists to `~/.openwiki/.env` and appears in diagnostics.                                                                                                                                                                                                                                                                                                                   |
+| `src/cli.tsx`                     | Resolve the OKF setting (flag > env > default) and pass it into the agent run options; surface it in dry-run output.                                                                                                                                                                                                                                                                                                      |
+| `src/agent/types.ts`              | Add `okf?: boolean` to `OpenWikiRunOptions`; consider an `okfConformant?: boolean` on `OpenWikiRunResult`.                                                                                                                                                                                                                                                                                                                |
+| `src/agent/prompt.ts`             | Thread the OKF flag into `createSystemPrompt`; append the OKF output-contract section (frontmatter rules, taxonomy, absolute links, conventional headings, update-mode frontmatter-preservation rule).                                                                                                                                                                                                                    |
+| `src/agent/index.ts`              | Forward the flag to the prompt builder; after a successful run, invoke the OKF validator/normalizer and (optionally) `index.md`/`log.md` generation before/around `writeLastUpdateMetadata`.                                                                                                                                                                                                                              |
+| `src/agent/utils.ts`              | Reuse the directory walk; optionally factor the traversal so the OKF module can share it; add body-hash-aware `timestamp` preservation if implementing §4.6.2.                                                                                                                                                                                                                                                            |
+| `src/agent/okf.ts` _(new)_        | **Owns frontmatter**: parse/split/set/drop helpers (model `src/agent/frontmatter.ts` on OpenKB's `frontmatter.py`), deterministic stamping of `type`/`title`/`description`/`timestamp`, conformance validation (OKF §9), safe repair, deterministic `index.md` generation with `okf_version`, optional `log.md` generation, atomic writes, conformance reporting. Direct references: OpenKB `frontmatter.py` + `lint.py`. |
+| `package.json` / `pnpm-lock.yaml` | Add a frontmatter/YAML dependency if none is already available transitively.                                                                                                                                                                                                                                                                                                                                              |
+| `README.md` / `DEVELOPMENT.md`    | Document the `--okf` flag, the taxonomy, and conformance guarantees.                                                                                                                                                                                                                                                                                                                                                      |
+| `examples/openwiki-update.yml`    | Optionally show `--okf` usage in the scheduled-update GitHub Action.                                                                                                                                                                                                                                                                                                                                                      |
+| Tests                             | Unit-test the parser, validator, normalizer, and `index.md` generator; add a conformance fixture bundle.                                                                                                                                                                                                                                                                                                                  |
 
 ---
 
@@ -202,23 +202,23 @@ Phases 1–3 deliver a usable, spec-conformant `--okf` mode; 4–5 harden it for
 
 [VectifyAI/OpenKB](https://github.com/VectifyAI/OpenKB) is a Python CLI that already produces OKF-conformant output, and it is the closest available prior art for what issue #84 asks. OpenKB compiles ingested documents into a `wiki/` bundle of Markdown pages with YAML frontmatter; its `openkb/lint.py` contains explicit "OKF Conformance" checks. Reading its source surfaces several concrete, transferable patterns — and one architectural decision that is worth adopting wholesale.
 
-**1. Frontmatter is code-managed, never model-emitted.** OpenKB's page schema (`openkb/schema.py`) instructs the model *not* to write frontmatter; the compiler stamps `type` and `description` deterministically. The schema comment states plainly that `type` is *"the one field OKF requires; consumers use it for routing/filtering/presentation."* This is the single most important pattern to match (folded into §4.2 above): it makes conformance guaranteed rather than probabilistic.
+**1. Frontmatter is code-managed, never model-emitted.** OpenKB's page schema (`openkb/schema.py`) instructs the model _not_ to write frontmatter; the compiler stamps `type` and `description` deterministically. The schema comment states plainly that `type` is _"the one field OKF requires; consumers use it for routing/filtering/presentation."_ This is the single most important pattern to match (folded into §4.2 above): it makes conformance guaranteed rather than probabilistic.
 
-**2. A dedicated, hardened frontmatter module.** `openkb/frontmatter.py` is a single source of truth for `build / split / parse / set / drop` on the `---` block. Two defensive details are directly relevant to OpenWiki: (a) the closing delimiter is matched line-anchored (`\n---`) so a `---` inside a quoted value never truncates the block — the exact bug a naive parser hits; (b) values are serialized with `json.dumps` because JSON is a strict subset of YAML, guaranteeing single-line, correctly-escaped values. Its `set_line()` / `drop_line()` helpers mutate one key while preserving all others — this *is* the "metadata preservation during incremental updates" mechanism the issue asks for.
+**2. A dedicated, hardened frontmatter module.** `openkb/frontmatter.py` is a single source of truth for `build / split / parse / set / drop` on the `---` block. Two defensive details are directly relevant to OpenWiki: (a) the closing delimiter is matched line-anchored (`\n---`) so a `---` inside a quoted value never truncates the block — the exact bug a naive parser hits; (b) values are serialized with `json.dumps` because JSON is a strict subset of YAML, guaranteeing single-line, correctly-escaped values. Its `set_line()` / `drop_line()` helpers mutate one key while preserving all others — this _is_ the "metadata preservation during incremental updates" mechanism the issue asks for.
 
 **3. `description` deliberately replaces `brief`.** OpenKB renamed its one-line-summary field to `description` specifically to align with OKF's recommended field name (visible in both `schema.py` and its sample bundle). OpenWiki should use OKF's field names (`title`, `description`, `tags`, `timestamp`, `resource`) verbatim.
 
-**4. Reserved files `index.md` + `log.md`, with a shared seed constant.** OpenKB implements both OKF reserved files. Its `INDEX_SEED` constant is shared between `init` and the compiler's lazy-create path *"so they never drift"* — the same single-source-of-truth discipline OpenWiki should use for its root `index.md` and `okf_version` declaration. Its log format is a flat, date-stamped, append-only list (`## [YYYY-MM-DD HH:MM:SS] operation | description`), matching OKF §7.
+**4. Reserved files `index.md` + `log.md`, with a shared seed constant.** OpenKB implements both OKF reserved files. Its `INDEX_SEED` constant is shared between `init` and the compiler's lazy-create path _"so they never drift"_ — the same single-source-of-truth discipline OpenWiki should use for its root `index.md` and `okf_version` declaration. Its log format is a flat, date-stamped, append-only list (`## [YYYY-MM-DD HH:MM:SS] operation | description`), matching OKF §7.
 
-**5. Type taxonomy as a defended config value.** `openkb/config.py` defines `DEFAULT_ENTITY_TYPES` and a `resolve_entity_types()` resolver: a default vocabulary, overridable per-KB via an `entity_types:` config key, with each value regex-cleaned (`[^a-z0-9 _-]` stripped) *so a stray brace or punctuation can't leak into a prompt template or a frontmatter value*, de-duped, and with an `other` fallback always appended. OpenWiki's `REPO_DOC_TYPES` taxonomy (§4.4) should follow this shape: a constant default, optionally overridable, defensively sanitized.
+**5. Type taxonomy as a defended config value.** `openkb/config.py` defines `DEFAULT_ENTITY_TYPES` and a `resolve_entity_types()` resolver: a default vocabulary, overridable per-KB via an `entity_types:` config key, with each value regex-cleaned (`[^a-z0-9 _-]` stripped) _so a stray brace or punctuation can't leak into a prompt template or a frontmatter value_, de-duped, and with an `other` fallback always appended. OpenWiki's `REPO_DOC_TYPES` taxonomy (§4.4) should follow this shape: a constant default, optionally overridable, defensively sanitized.
 
 **6. Validation is a separate structural linter with an OKF section.** `openkb/lint.py` (§4.5) offers a ready-made blueprint: `find_missing_okf_fields`, `find_invalid_frontmatter`, `check_index_sync`, plus a `--fix` auto-repair path (`fix_broken_links` / `strip_ghost_wikilinks`) that rewrites fuzzy-matching links to canonical form and demotes unresolvable ones to plain text, writing a report under `reports/`. A shared `_load_wiki_pages()` reads every page once and feeds both frontmatter checks. `PAGE_CONTENT_DIRS` is a shared constant naming which directories hold conformant concept pages — used by list, lint, and status alike.
 
 **7. Atomic writes for every mutation.** OpenKB routes all wiki writes through `atomic_write_text` (`openkb/locks.py`). Given OpenWiki runs in scheduled CI and can be interrupted, the OKF stamping/repair pass should write atomically too.
 
-**Where OpenWiki should diverge from OpenKB.** OpenKB cross-links pages with Obsidian-style `[[wikilinks]]` and lints them, which is *not* OKF's specified cross-linking; OKF §5 uses standard Markdown links, preferably bundle-relative absolute (`/dir/page.md`). OpenWiki should keep OKF-standard Markdown links and adapt OpenKB's ghost-link-stripping idea to that syntax rather than adopting wikilinks. The two tools also have different taxonomies (OpenKB: `summaries`/`concepts`/`entities` for a document KB; OpenWiki: `architecture`/`workflows`/`operations` for repo docs) — same mechanism, different vocabulary. Finally, OpenKB has a heavyweight `compiler.py` orchestrating generation; OpenWiki's agent writes files directly, so its equivalent of OpenKB's code-managed frontmatter is a *post-generation stamping pass* in `src/agent/index.ts`, not an inline compiler stage.
+**Where OpenWiki should diverge from OpenKB.** OpenKB cross-links pages with Obsidian-style `[[wikilinks]]` and lints them, which is _not_ OKF's specified cross-linking; OKF §5 uses standard Markdown links, preferably bundle-relative absolute (`/dir/page.md`). OpenWiki should keep OKF-standard Markdown links and adapt OpenKB's ghost-link-stripping idea to that syntax rather than adopting wikilinks. The two tools also have different taxonomies (OpenKB: `summaries`/`concepts`/`entities` for a document KB; OpenWiki: `architecture`/`workflows`/`operations` for repo docs) — same mechanism, different vocabulary. Finally, OpenKB has a heavyweight `compiler.py` orchestrating generation; OpenWiki's agent writes files directly, so its equivalent of OpenKB's code-managed frontmatter is a _post-generation stamping pass_ in `src/agent/index.ts`, not an inline compiler stage.
 
-**Net effect on this proposal.** OpenKB validates the overall plan and upgrades one decision: frontmatter should be owned by code (§4.2), not prompted-then-repaired. The `okf.ts` module in the file map (§5) should therefore be responsible for *both* stamping and validating, with `frontmatter.py` and `lint.py` as direct design references.
+**Net effect on this proposal.** OpenKB validates the overall plan and upgrades one decision: frontmatter should be owned by code (§4.2), not prompted-then-repaired. The `okf.ts` module in the file map (§5) should therefore be responsible for _both_ stamping and validating, with `frontmatter.py` and `lint.py` as direct design references.
 
 ---
 
@@ -229,7 +229,7 @@ Phases 1–3 deliver a usable, spec-conformant `--okf` mode; 4–5 harden it for
 - **Entry-point duality.** `quickstart.md` (OpenWiki convention, referenced from `AGENTS.md`/`CLAUDE.md`) vs. `index.md` (OKF navigation root). Recommendation: keep both, have `index.md` link to `quickstart.md`; the `AGENTS.md`/`CLAUDE.md` reference section can continue to point at `quickstart.md`.
 - **`resource` semantics.** For repo docs, the natural `resource` is a source path or a repo-relative/permalink URL. Decide a convention (e.g. `resource: /src/agent/index.ts` or a GitHub blob URL) and apply it only where a page maps to a concrete asset.
 - **Dependency footprint.** Prefer an existing transitive YAML parser; if adding one, keep it minimal to honor OKF's "no required SDK" ethos.
-- **Spec maturity.** OKF is a v0.1 *draft*. Pin to `0.1` via the `OKF_VERSION` constant so a future spec bump is a one-line change, and rely on OKF's forward-compatible consumption model.
+- **Spec maturity.** OKF is a v0.1 _draft_. Pin to `0.1` via the `OKF_VERSION` constant so a future spec bump is a one-line change, and rely on OKF's forward-compatible consumption model.
 
 ---
 
