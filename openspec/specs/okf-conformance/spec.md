@@ -1,8 +1,11 @@
 # okf-conformance Specification
 
 ## Purpose
+
 TBD - created by archiving change okf-frontmatter-validation-index. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: Frontmatter block parsing is line-anchored
 
 The system SHALL detect and split a Markdown file's leading YAML frontmatter block by matching an opening `---` line at the start of the file and a closing `---` line anchored to the start of a subsequent line. The system SHALL NOT use unanchored substring search (e.g. locating the closing delimiter via a plain "find the next occurrence of `---`") to find the closing delimiter.
@@ -149,4 +152,3 @@ The system SHALL invoke the OKF stamp/validate/repair/index-generation pass only
 #### Known limitation: the pass only runs alongside a detected content change
 
 This phase invokes the OKF pass from the same branch in `runOpenWikiAgentCore` that already detects whether the current run changed any `openwiki/` content (compares a before/after content snapshot). Enabling `--okf` for the first time on an already-generated wiki, then running a command that makes no further content changes, is a true no-op at the snapshot level and SHALL NOT trigger the OKF pass — previously-unstamped pages remain unstamped until a subsequent run that does change content. A dedicated backfill pass that runs on `--okf` enablement regardless of content change is deferred to a later phase.
-
