@@ -9,6 +9,7 @@ import {
   normalizeModelId,
   normalizeProvider,
   resolveConfiguredProvider,
+  resolveOkfEnabled,
   resolveProviderBaseUrl,
 } from "../src/constants.ts";
 
@@ -81,6 +82,25 @@ describe("resolveConfiguredProvider", () => {
     expect(resolveConfiguredProvider({ OPENWIKI_PROVIDER: "bogus" })).toBe(
       DEFAULT_PROVIDER,
     );
+  });
+});
+
+describe("resolveOkfEnabled", () => {
+  test("defaults to false when unset", () => {
+    expect(resolveOkfEnabled({})).toBe(false);
+  });
+
+  test("accepts truthy values '1' and 'true' (case-insensitive)", () => {
+    expect(resolveOkfEnabled({ OPENWIKI_OKF: "1" })).toBe(true);
+    expect(resolveOkfEnabled({ OPENWIKI_OKF: "true" })).toBe(true);
+    expect(resolveOkfEnabled({ OPENWIKI_OKF: "TRUE" })).toBe(true);
+    expect(resolveOkfEnabled({ OPENWIKI_OKF: " true " })).toBe(true);
+  });
+
+  test("treats any other value as false", () => {
+    expect(resolveOkfEnabled({ OPENWIKI_OKF: "0" })).toBe(false);
+    expect(resolveOkfEnabled({ OPENWIKI_OKF: "false" })).toBe(false);
+    expect(resolveOkfEnabled({ OPENWIKI_OKF: "yes" })).toBe(false);
   });
 });
 
