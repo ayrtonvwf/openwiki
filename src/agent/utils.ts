@@ -3,7 +3,11 @@ import { createHash } from "node:crypto";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
-import { OPEN_WIKI_DIR, UPDATE_METADATA_PATH } from "../constants.js";
+import {
+  OKF_STATE_PATH,
+  OPEN_WIKI_DIR,
+  UPDATE_METADATA_PATH,
+} from "../constants.js";
 import {
   isExpectedSnapshotRaceError,
   isFileNotFoundError,
@@ -181,6 +185,16 @@ export async function walkOpenWikiMarkdownFiles(
   return files;
 }
 
+/**
+ * Root-level basenames that are shared machine state rather than
+ * conformance-bearing content, so both the content snapshot and the OKF
+ * markdown walk must ignore them.
+ */
+const SKIPPED_ROOT_BASENAMES: ReadonlySet<string> = new Set([
+  path.basename(UPDATE_METADATA_PATH),
+  path.basename(OKF_STATE_PATH),
+]);
+
 type OpenWikiDirectoryVisitor = {
   onMissing?: () => void;
   onDirectory?: (relativePath: string) => void;
@@ -217,7 +231,7 @@ async function visitOpenWikiDirectory(
     const entryPath = path.join(directory, entry.name);
     const relativePath = path.join(relativeDirectory, entry.name);
 
-    if (relativePath === path.basename(UPDATE_METADATA_PATH)) {
+    if (relativeDirectory === "" && SKIPPED_ROOT_BASENAMES.has(entry.name)) {
       continue;
     }
 
@@ -352,6 +366,27 @@ async function createGitSummary(
   sections.push(formatGitSection("git diff --name-status HEAD", diff));
 
   return sections.join("\n\n");
+}
+
+/**
+ * Builds a one-line description of a run's changes for the OKF `log.md`
+ * entry, from the run command and the working tree's git diff against HEAD.
+ */
+export async function summarizeOkfRunChange(
+  command: OpenWikiCommand,
+  cwd: string,
+): Promise<string> {
+  const head = await getGitHead(cwd);
+  const headLabel = head ? head.slice(0, 7) : "unknown";
+  const diff = await runGit(cwd, ["diff", "--name-only", "HEAD"]);
+  const changedFileCount = diff
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean).length;
+
+  return changedFileCount > 0
+    ? `${command}: ${changedFileCount} file(s) changed (${headLabel})`
+    : `${command} (${headLabel})`;
 }
 
 async function getGitHead(cwd: string): Promise<string | undefined> {

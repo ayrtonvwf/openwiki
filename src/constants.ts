@@ -1,5 +1,8 @@
 export const OPEN_WIKI_DIR = "openwiki";
 export const UPDATE_METADATA_PATH = `${OPEN_WIKI_DIR}/.last-update.json`;
+export const OKF_STATE_PATH = `${OPEN_WIKI_DIR}/.okf-state.json`;
+export const OKF_LOG_PATH = `${OPEN_WIKI_DIR}/log.md`;
+export const OKF_LOG_HEADER = "# Change Log";
 export const OKF_VERSION = "0.1";
 export const BASETEN_API_KEY_ENV_KEY = "BASETEN_API_KEY";
 export const FIREWORKS_API_KEY_ENV_KEY = "FIREWORKS_API_KEY";

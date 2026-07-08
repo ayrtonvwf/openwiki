@@ -91,4 +91,20 @@ describe("createOpenWikiContentSnapshot", () => {
 
     expect(await createOpenWikiContentSnapshot(repo)).toBe(before);
   });
+
+  test("ignores the OKF state file, so its presence/contents cannot perturb no-op detection", async () => {
+    const repo = await createOpenWikiTree();
+    const before = await createOpenWikiContentSnapshot(repo);
+
+    await writeFile(
+      path.join(repo, "openwiki", ".okf-state.json"),
+      JSON.stringify({ version: 1, pages: { "quickstart.md": "changed" } }),
+      "utf8",
+    );
+
+    expect(await createOpenWikiContentSnapshot(repo)).toBe(before);
+    expect(await walkOpenWikiMarkdownFiles(repo)).not.toContain(
+      ".okf-state.json",
+    );
+  });
 });

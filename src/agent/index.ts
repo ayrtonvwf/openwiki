@@ -39,6 +39,7 @@ import {
   getUpdateNoopStatus,
   createRunContext,
   shouldCheckUpdateNoop,
+  summarizeOkfRunChange,
   writeLastUpdateMetadata,
 } from "./utils.js";
 
@@ -185,7 +186,8 @@ async function runOpenWikiAgentCore(
     emitDebug(options, "metadata=written");
 
     if (options.okf === true) {
-      const okfReport = await runOkfPass(cwd);
+      const changeSummary = await summarizeOkfRunChange(command, cwd);
+      const okfReport = await runOkfPass(cwd, { command, changeSummary });
       okfConformant = okfReport.conformant;
       emitDebug(
         options,
