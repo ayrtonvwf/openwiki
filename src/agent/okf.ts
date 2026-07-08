@@ -299,8 +299,7 @@ export function generateRootIndex(stampedPages: PageStampResult[]): string {
     .filter((page) => page.relativePath !== "quickstart.md")
     .sort((left, right) => left.relativePath.localeCompare(right.relativePath))
     .map(
-      (page) =>
-        `- [${page.title}](/${page.relativePath}): ${page.description}`,
+      (page) => `- [${page.title}](/${page.relativePath}): ${page.description}`,
     )
     .join("\n");
 

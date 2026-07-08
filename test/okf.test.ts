@@ -48,9 +48,7 @@ describe("splitFrontmatter", () => {
 
     const { frontmatter, body } = splitFrontmatter(content);
 
-    expect(frontmatter).toContain(
-      'description: "uses a --- marker inline"',
-    );
+    expect(frontmatter).toContain('description: "uses a --- marker inline"');
     expect(body).toBe("Body content here.\n");
   });
 });
@@ -162,16 +160,14 @@ describe("stampPage", () => {
     expect(stamped.title).toBe("New Heading");
     expect(stamped.description).toBe("Fresh paragraph text here.");
 
-    const fields = parseFrontmatter(splitFrontmatter(stamped.content).frontmatter);
+    const fields = parseFrontmatter(
+      splitFrontmatter(stamped.content).frontmatter,
+    );
     expect(fields?.timestamp).toBe("2020-01-01T00:00:00.000Z");
   });
 
   test("falls back to the Reference type for an unrecognized directory and flags it", () => {
-    const stamped = stampPage(
-      "misc/notes.md",
-      "# Notes\n\nSome notes.\n",
-      now,
-    );
+    const stamped = stampPage("misc/notes.md", "# Notes\n\nSome notes.\n", now);
 
     expect(stamped.type).toBe("Reference");
     expect(stamped.typeIsFallback).toBe(true);
@@ -200,7 +196,9 @@ describe("stampPage", () => {
     ].join("\n");
 
     const stamped = stampPage("reference/okf.md", content, now);
-    const fields = parseFrontmatter(splitFrontmatter(stamped.content).frontmatter);
+    const fields = parseFrontmatter(
+      splitFrontmatter(stamped.content).frontmatter,
+    );
 
     expect(fields?.resource).toBe("/src/agent/okf.ts");
   });
@@ -216,9 +214,7 @@ describe("validation helpers", () => {
   test("findMissingOkfFields flags an empty type field", () => {
     const content = '---\ntype: ""\n---\nBody\n';
 
-    expect(findMissingOkfFields(content)).toBe(
-      "missing non-empty type field",
-    );
+    expect(findMissingOkfFields(content)).toBe("missing non-empty type field");
   });
 
   test("findMissingOkfFields passes a page with a non-empty type", () => {
@@ -236,7 +232,9 @@ describe("validation helpers", () => {
   });
 
   test("findInvalidFrontmatter passes valid frontmatter and no-frontmatter content", () => {
-    expect(findInvalidFrontmatter('---\ntype: "Reference"\n---\nBody\n')).toBeNull();
+    expect(
+      findInvalidFrontmatter('---\ntype: "Reference"\n---\nBody\n'),
+    ).toBeNull();
     expect(findInvalidFrontmatter("Body only\n")).toBeNull();
   });
 
@@ -262,7 +260,9 @@ describe("validation helpers", () => {
   });
 
   test("checkIndexStructure ignores non-index files", () => {
-    expect(checkIndexStructure("architecture/overview.md", "Body\n")).toBeNull();
+    expect(
+      checkIndexStructure("architecture/overview.md", "Body\n"),
+    ).toBeNull();
   });
 });
 

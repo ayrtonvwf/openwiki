@@ -17,11 +17,7 @@ async function createOpenWikiTree(): Promise<string> {
     "# Quickstart\n",
     "utf8",
   );
-  await writeFile(
-    path.join(repo, "openwiki", "index.md"),
-    "# Index\n",
-    "utf8",
-  );
+  await writeFile(path.join(repo, "openwiki", "index.md"), "# Index\n", "utf8");
   await writeFile(
     path.join(repo, "openwiki", "architecture", "overview.md"),
     "# Overview\n",
