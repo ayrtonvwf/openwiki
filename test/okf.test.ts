@@ -1,4 +1,11 @@
-import { mkdir, mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
@@ -573,15 +580,18 @@ describe("runOkfPass", () => {
     expect(await readFile(overviewPath, "utf8")).toBe(stamped);
   });
 
-  test("a no-op update (no body edits) leaves pages, index.md, and the state file byte-for-byte unchanged", async () => {
+  test("a no-op update (no body edits) leaves pages, index.md, the state file, and log.md byte-for-byte unchanged", async () => {
     const repo = await createOpenWikiFixture();
 
     await runOkfPass(repo, TEST_RUN_INFO);
 
     const statePath = path.join(repo, "openwiki", ".okf-state.json");
+    const logPath = path.join(repo, "openwiki", "log.md");
     const before = {
       state: await readFile(statePath, "utf8"),
       stateMtime: (await stat(statePath)).mtimeMs,
+      log: await readFile(logPath, "utf8"),
+      logMtime: (await stat(logPath)).mtimeMs,
     };
 
     const secondReport = await runOkfPass(repo, TEST_RUN_INFO);
@@ -589,6 +599,8 @@ describe("runOkfPass", () => {
     expect(secondReport.conformant).toBe(true);
     expect(await readFile(statePath, "utf8")).toBe(before.state);
     expect((await stat(statePath)).mtimeMs).toBe(before.stateMtime);
+    expect(await readFile(logPath, "utf8")).toBe(before.log);
+    expect((await stat(logPath)).mtimeMs).toBe(before.logMtime);
   });
 
   test("prepends a dated, newest-first log.md entry on a content-changing run without a frontmatter block", async () => {
@@ -621,5 +633,106 @@ describe("runOkfPass", () => {
     expect(secondLog.indexOf("update: revised overview")).toBeLessThan(
       secondLog.indexOf("init: initial generation"),
     );
+  });
+
+  test("groups same-day entries under one heading, newest entry first", async () => {
+    const repo = await createOpenWikiFixture();
+
+    await runOkfPass(repo, { command: "init", changeSummary: "first run" });
+    await writeFile(
+      path.join(repo, "openwiki", "architecture", "overview.md"),
+      "# Overview\n\nDescribes the system architecture, revised again.\n",
+      "utf8",
+    );
+    await runOkfPass(repo, { command: "update", changeSummary: "second run" });
+
+    const log = await readFile(
+      path.join(repo, "openwiki", "log.md"),
+      "utf8",
+    );
+    const headingMatches = [...log.matchAll(/^## \d{4}-\d{2}-\d{2}$/gmu)];
+
+    expect(headingMatches).toHaveLength(1);
+    expect(log.indexOf("update: second run")).toBeLessThan(
+      log.indexOf("init: first run"),
+    );
+  });
+
+  test("prunes state entries for pages that no longer exist", async () => {
+    const repo = await createOpenWikiFixture();
+    const overviewPath = path.join(
+      repo,
+      "openwiki",
+      "architecture",
+      "overview.md",
+    );
+    const statePath = path.join(repo, "openwiki", ".okf-state.json");
+
+    await runOkfPass(repo, TEST_RUN_INFO);
+    const stateAfterFirst = JSON.parse(
+      await readFile(statePath, "utf8"),
+    ) as OkfState;
+    expect(stateAfterFirst.pages["architecture/overview.md"]).toBeDefined();
+
+    await rm(overviewPath);
+    await runOkfPass(repo, TEST_RUN_INFO);
+
+    const stateAfterSecond = JSON.parse(
+      await readFile(statePath, "utf8"),
+    ) as OkfState;
+    expect(stateAfterSecond.pages["architecture/overview.md"]).toBeUndefined();
+    expect(stateAfterSecond.pages["quickstart.md"]).toBeDefined();
+  });
+
+  test("tolerates a corrupt state file by falling back to empty state instead of failing the pass", async () => {
+    const repo = await createOpenWikiFixture();
+
+    await mkdir(path.join(repo, "openwiki"), { recursive: true });
+    await writeFile(
+      path.join(repo, "openwiki", ".okf-state.json"),
+      "{ not valid json",
+      "utf8",
+    );
+
+    const report = await runOkfPass(repo, TEST_RUN_INFO);
+
+    expect(report.conformant).toBe(true);
+
+    const state = JSON.parse(
+      await readFile(path.join(repo, "openwiki", ".okf-state.json"), "utf8"),
+    ) as OkfState;
+    expect(state.pages["quickstart.md"]).toBeDefined();
+  });
+
+  test("re-stamps a page with an unquoted producer key byte-for-byte identically on the second run", async () => {
+    const repo = await createOpenWikiFixture();
+    const overviewPath = path.join(
+      repo,
+      "openwiki",
+      "architecture",
+      "overview.md",
+    );
+
+    await writeFile(
+      overviewPath,
+      [
+        "---",
+        "resource: /src/agent/okf.ts",
+        "---",
+        "# Overview",
+        "",
+        "Describes the system architecture.",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+
+    await runOkfPass(repo, TEST_RUN_INFO);
+    const stampedOnce = await readFile(overviewPath, "utf8");
+
+    await runOkfPass(repo, TEST_RUN_INFO);
+    const stampedTwice = await readFile(overviewPath, "utf8");
+
+    expect(stampedTwice).toBe(stampedOnce);
   });
 });

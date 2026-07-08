@@ -370,23 +370,30 @@ async function createGitSummary(
 
 /**
  * Builds a one-line description of a run's changes for the OKF `log.md`
- * entry, from the run command and the working tree's git diff against HEAD.
+ * entry, from the working tree's git diff against HEAD, scoped to
+ * `openwiki/` so the count reflects wiki changes rather than unrelated
+ * source edits elsewhere in the worktree. Callers prefix this with the run
+ * command themselves (see `buildUpdatedLog`); this function must not add its
+ * own command prefix, or entries end up double-prefixed (e.g. "init: init: ...").
  */
-export async function summarizeOkfRunChange(
-  command: OpenWikiCommand,
-  cwd: string,
-): Promise<string> {
+export async function summarizeOkfRunChange(cwd: string): Promise<string> {
   const head = await getGitHead(cwd);
   const headLabel = head ? head.slice(0, 7) : "unknown";
-  const diff = await runGit(cwd, ["diff", "--name-only", "HEAD"]);
+  const diff = await runGit(cwd, [
+    "diff",
+    "--name-only",
+    "HEAD",
+    "--",
+    OPEN_WIKI_DIR,
+  ]);
   const changedFileCount = diff
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean).length;
 
   return changedFileCount > 0
-    ? `${command}: ${changedFileCount} file(s) changed (${headLabel})`
-    : `${command} (${headLabel})`;
+    ? `${changedFileCount} file(s) changed (${headLabel})`
+    : `no file changes (${headLabel})`;
 }
 
 async function getGitHead(cwd: string): Promise<string | undefined> {

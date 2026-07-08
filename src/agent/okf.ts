@@ -349,6 +349,13 @@ export function stampPage(
   };
 }
 
+/**
+ * Not called from `runOkfPass`: the pass's full re-stamp of every
+ * non-reserved page (`stampPage`) is itself the repair for missing or
+ * invalid frontmatter, so there is nothing left to flag by the time
+ * validation would run. Exported for direct unit testing of the underlying
+ * detection logic.
+ */
 export function findMissingOkfFields(content: string): string | null {
   const { frontmatter } = splitFrontmatter(content);
 
@@ -562,6 +569,14 @@ type OkfLogEntryGroup = {
   entries: string[];
 };
 
+/**
+ * `log.md` is fully code-owned: this parser only recognizes the `## DATE`
+ * heading and `- entry` line shapes this module itself writes, and
+ * `serializeLogGroups` rewrites the whole file from the parsed groups on
+ * every run. Any hand-added prose, custom headings, or multi-line entries
+ * are silently dropped on the next `--okf` run — do not edit `log.md` by
+ * hand expecting it to round-trip.
+ */
 function parseLogGroups(content: string | null): OkfLogEntryGroup[] {
   if (content === null) {
     return [];
@@ -609,6 +624,12 @@ function serializeLogGroups(groups: OkfLogEntryGroup[]): string {
  * preserving all previously recorded history below it. Returns the
  * serialized content so the caller can both write it (via `writeIfChanged`,
  * so a run that adds no new entry never rewrites the file) and validate it.
+ *
+ * When the run's entry is identical to the most recent entry already
+ * recorded for today, no new entry is appended: the run "added no new
+ * entry" per spec, so the existing content is returned unchanged (byte for
+ * byte) rather than re-serialized, so an identical re-run never duplicates
+ * a line or perturbs the file on disk.
  */
 async function buildUpdatedLog(
   cwd: string,
@@ -620,9 +641,18 @@ async function buildUpdatedLog(
   const groups = parseLogGroups(existingContent);
   const today = now.slice(0, 10);
   const entry = `${runInfo.command}: ${runInfo.changeSummary}`;
+  const latestGroup = groups[0];
 
-  if (groups.length > 0 && groups[0].date === today) {
-    groups[0].entries.unshift(entry);
+  if (
+    latestGroup?.date === today &&
+    latestGroup.entries[0] === entry &&
+    existingContent !== null
+  ) {
+    return existingContent;
+  }
+
+  if (latestGroup?.date === today) {
+    latestGroup.entries.unshift(entry);
   } else {
     groups.unshift({ date: today, entries: [entry] });
   }

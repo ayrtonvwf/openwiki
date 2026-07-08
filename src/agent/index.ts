@@ -186,7 +186,7 @@ async function runOpenWikiAgentCore(
     emitDebug(options, "metadata=written");
 
     if (options.okf === true) {
-      const changeSummary = await summarizeOkfRunChange(command, cwd);
+      const changeSummary = await summarizeOkfRunChange(cwd);
       const okfReport = await runOkfPass(cwd, { command, changeSummary });
       okfConformant = okfReport.conformant;
       emitDebug(
