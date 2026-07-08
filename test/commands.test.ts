@@ -169,6 +169,33 @@ describe("parseCommand — --modelId", () => {
   });
 });
 
+describe("parseCommand — --okf / --no-okf", () => {
+  test("defaults to null (unspecified) when neither flag is passed", () => {
+    expect(parseCommand([])).toMatchObject({ okf: null });
+  });
+
+  test("--okf sets okf to true", () => {
+    expect(parseCommand(["--okf"])).toMatchObject({ okf: true });
+  });
+
+  test("--no-okf sets okf to false", () => {
+    expect(parseCommand(["--no-okf"])).toMatchObject({ okf: false });
+  });
+
+  test("the last of --okf / --no-okf wins when both are passed", () => {
+    expect(parseCommand(["--okf", "--no-okf"])).toMatchObject({ okf: false });
+    expect(parseCommand(["--no-okf", "--okf"])).toMatchObject({ okf: true });
+  });
+
+  test("combines with other options", () => {
+    expect(parseCommand(["--okf", "--init"])).toMatchObject({
+      kind: "run",
+      okf: true,
+      command: "init",
+    });
+  });
+});
+
 describe("parseCommand — unknown options and dry-run gating", () => {
   test("an unknown --flag is an error", () => {
     const result = parseCommand(["--nope"]);
