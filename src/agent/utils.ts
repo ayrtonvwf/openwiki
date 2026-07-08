@@ -138,12 +138,99 @@ export async function writeLastUpdateMetadata(
 export async function createOpenWikiContentSnapshot(
   cwd: string,
 ): Promise<OpenWikiContentSnapshot> {
-  const openWikiDir = path.join(cwd, OPEN_WIKI_DIR);
   const hash = createHash("sha256");
 
-  await addDirectoryToSnapshot(hash, openWikiDir, "");
+  await visitOpenWikiDirectory(path.join(cwd, OPEN_WIKI_DIR), "", {
+    onMissing: () => hash.update("missing"),
+    onDirectory: (relativePath) => hash.update(`dir:${relativePath}\0`),
+    onFile: async (relativePath, absolutePath) => {
+      const fileContent = await readSnapshotFile(absolutePath);
+
+      if (fileContent === null) {
+        return;
+      }
+
+      hash.update(`file:${relativePath}\0`);
+      hash.update(fileContent);
+      hash.update("\0");
+    },
+  });
 
   return hash.digest("hex");
+}
+
+/**
+ * Recursively walks `openwiki/` and returns the repo-relative paths (using
+ * forward slashes) of every `.md` file, skipping the update metadata file.
+ * Entries are sorted deterministically at each directory level. Shared by the
+ * content snapshot hasher and the OKF pass so both traverse identically.
+ */
+export async function walkOpenWikiMarkdownFiles(
+  cwd: string,
+): Promise<string[]> {
+  const files: string[] = [];
+
+  await visitOpenWikiDirectory(path.join(cwd, OPEN_WIKI_DIR), "", {
+    onFile: (relativePath) => {
+      if (relativePath.endsWith(".md")) {
+        files.push(relativePath.split(path.sep).join("/"));
+      }
+    },
+  });
+
+  return files;
+}
+
+type OpenWikiDirectoryVisitor = {
+  onMissing?: () => void;
+  onDirectory?: (relativePath: string) => void;
+  onFile?: (relativePath: string, absolutePath: string) => Promise<void> | void;
+};
+
+/**
+ * Shared recursive walk over `openwiki/`: sorts entries deterministically,
+ * skips the update metadata file, and reports directories/files to the given
+ * visitor callbacks. Both the content snapshot hasher and the shared markdown
+ * file walker traverse through this single implementation.
+ */
+async function visitOpenWikiDirectory(
+  directory: string,
+  relativeDirectory: string,
+  visitor: OpenWikiDirectoryVisitor,
+): Promise<void> {
+  let entries: Dirent[];
+
+  try {
+    entries = await readdir(directory, { withFileTypes: true });
+  } catch (error) {
+    if (isExpectedSnapshotRaceError(error)) {
+      visitor.onMissing?.();
+      return;
+    }
+
+    throw error;
+  }
+
+  for (const entry of entries.sort((left, right) =>
+    left.name.localeCompare(right.name),
+  )) {
+    const entryPath = path.join(directory, entry.name);
+    const relativePath = path.join(relativeDirectory, entry.name);
+
+    if (relativePath === path.basename(UPDATE_METADATA_PATH)) {
+      continue;
+    }
+
+    if (entry.isDirectory()) {
+      visitor.onDirectory?.(relativePath);
+      await visitOpenWikiDirectory(entryPath, relativePath, visitor);
+      continue;
+    }
+
+    if (entry.isFile()) {
+      await visitor.onFile?.(relativePath, entryPath);
+    }
+  }
 }
 
 /**
@@ -179,59 +266,6 @@ async function readLastUpdate(cwd: string): Promise<UpdateMetadata | null> {
     }
 
     throw error;
-  }
-}
-
-/**
- * Recursively adds stable file paths and bytes to the OpenWiki content snapshot.
- */
-async function addDirectoryToSnapshot(
-  hash: ReturnType<typeof createHash>,
-  directory: string,
-  relativeDirectory: string,
-): Promise<void> {
-  let entries: Dirent[];
-
-  try {
-    entries = await readdir(directory, { withFileTypes: true });
-  } catch (error) {
-    if (isExpectedSnapshotRaceError(error)) {
-      hash.update("missing");
-      return;
-    }
-
-    throw error;
-  }
-
-  for (const entry of entries.sort((left, right) =>
-    left.name.localeCompare(right.name),
-  )) {
-    const entryPath = path.join(directory, entry.name);
-    const relativePath = path.join(relativeDirectory, entry.name);
-
-    if (relativePath === path.basename(UPDATE_METADATA_PATH)) {
-      continue;
-    }
-
-    if (entry.isDirectory()) {
-      hash.update(`dir:${relativePath}\0`);
-      await addDirectoryToSnapshot(hash, entryPath, relativePath);
-      continue;
-    }
-
-    if (!entry.isFile()) {
-      continue;
-    }
-
-    const fileContent = await readSnapshotFile(entryPath);
-
-    if (fileContent === null) {
-      continue;
-    }
-
-    hash.update(`file:${relativePath}\0`);
-    hash.update(fileContent);
-    hash.update("\0");
   }
 }
 

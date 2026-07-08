@@ -1,5 +1,6 @@
 export const OPEN_WIKI_DIR = "openwiki";
 export const UPDATE_METADATA_PATH = `${OPEN_WIKI_DIR}/.last-update.json`;
+export const OKF_VERSION = "0.1";
 export const BASETEN_API_KEY_ENV_KEY = "BASETEN_API_KEY";
 export const FIREWORKS_API_KEY_ENV_KEY = "FIREWORKS_API_KEY";
 export const OPENAI_API_KEY_ENV_KEY = "OPENAI_API_KEY";
@@ -280,6 +281,29 @@ export const REPO_DOC_TYPES: Readonly<Record<string, string>> =
     Testing: "testing",
     Reference: "reference",
   });
+
+export const REPO_DOC_TYPE_FALLBACK = "Reference";
+
+const DIRECTORY_TO_REPO_DOC_TYPE: ReadonlyMap<string, string> = new Map(
+  Object.entries(REPO_DOC_TYPES).map(([type, directory]) => [directory, type]),
+);
+
+/**
+ * Inverts {@link REPO_DOC_TYPES} to infer a page's `type` from the top-level
+ * directory it lives in. Directories with no taxonomy entry resolve to
+ * {@link REPO_DOC_TYPE_FALLBACK} with `isFallback: true`, so callers can flag
+ * the classification in a conformance report instead of leaving `type` empty.
+ */
+export function getRepoDocTypeForDirectory(directory: string): {
+  type: string;
+  isFallback: boolean;
+} {
+  const type = DIRECTORY_TO_REPO_DOC_TYPE.get(directory);
+
+  return type === undefined
+    ? { type: REPO_DOC_TYPE_FALLBACK, isFallback: true }
+    : { type, isFallback: false };
+}
 
 export function normalizeModelId(value: string): string {
   return value.trim();
