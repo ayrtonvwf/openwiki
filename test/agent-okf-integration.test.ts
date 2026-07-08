@@ -30,7 +30,7 @@ vi.mock("../src/env.ts", async (importOriginal) => {
 
   return {
     ...actual,
-    loadOpenWikiEnv: async () => ({}),
+    loadOpenWikiEnv: () => Promise.resolve({}),
     openWikiEnvDir: path.join(os.tmpdir(), "openwiki-okf-integration-envdir"),
   };
 });
