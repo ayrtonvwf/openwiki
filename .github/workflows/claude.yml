@@ -10,14 +10,16 @@ on:
   pull_request_review:
     types: [submitted]
 
-# Only run when someone actually tags @claude, to avoid spending on every comment.
+# Only run when someone actually tags @claude or @claude-opus, to avoid spending on every comment.
+# @claude-opus contains the substring @claude, so the Sonnet job's gate must explicitly
+# exclude @claude-opus on every surface, otherwise both jobs would fire on an Opus mention.
 jobs:
   claude:
     if: |
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
-      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude') && !contains(github.event.comment.body, '@claude-opus')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude') && !contains(github.event.comment.body, '@claude-opus')) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude') && !contains(github.event.review.body, '@claude-opus')) ||
+      (github.event_name == 'issues' && ((contains(github.event.issue.body, '@claude') && !contains(github.event.issue.body, '@claude-opus')) || (contains(github.event.issue.title, '@claude') && !contains(github.event.issue.title, '@claude-opus'))))
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -59,11 +61,71 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          model: claude-sonnet-5
           # Give Claude the project's real toolchain so it can validate AND fix its own
           # changes without hitting an approval prompt (CI has no interactive approver).
           # Use ":*" prefix wildcards so both bare and argument forms match — the previous
           # exact-match list rejected `pnpm install --no-frozen-lockfile`, the write-mode
           # `format`/`lint --fix` scripts, `pnpm run test`, the openspec CLI, and gh edits,
           # forcing every @claude PR to ship unformatted and unvalidated.
+          # NOTE: mirrored in the claude-opus job below — keep both allowlists identical.
+          claude_args: |
+            --allowedTools "Bash(pnpm install:*),Bash(pnpm run format:*),Bash(pnpm run lint:*),Bash(pnpm run typecheck:*),Bash(pnpm run build:*),Bash(pnpm run coverage:*),Bash(pnpm test:*),Bash(pnpm run test:*),Bash(openspec:*),Bash(mkdir:*),Bash(mv:*),Bash(gh pr edit:*),Bash(gh pr comment:*),Bash(gh pr view:*)"
+
+  claude-opus:
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude-opus')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude-opus')) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude-opus')) ||
+      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude-opus') || contains(github.event.issue.title, '@claude-opus')))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read # Allow reading CI results on PRs
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      # Pre-install deps so Claude can validate its own changes offline.
+      # Without this the sandbox has no node_modules and can't run pnpm install
+      # non-interactively, so every @claude-opus PR ships unvalidated (relying on checks.yml).
+      - name: Set up pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The openspec CLI (used by the /opsx:* commands and skills, per CLAUDE.md's
+      # required OpenSpec workflow) lives in node_modules/.bin and is invoked as a
+      # bare `openspec` command by those skills. Put it on PATH for the rest of
+      # the job so the Bash tool can actually find and run it.
+      - name: Add local CLI tools to PATH
+        run: echo "$PWD/node_modules/.bin" >> "$GITHUB_PATH"
+
+      - name: Run Claude Code
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          model: claude-opus-4-8
+          # Give Claude the project's real toolchain so it can validate AND fix its own
+          # changes without hitting an approval prompt (CI has no interactive approver).
+          # Use ":*" prefix wildcards so both bare and argument forms match — the previous
+          # exact-match list rejected `pnpm install --no-frozen-lockfile`, the write-mode
+          # `format`/`lint --fix` scripts, `pnpm run test`, the openspec CLI, and gh edits,
+          # forcing every @claude-opus PR to ship unformatted and unvalidated.
+          # NOTE: mirrored in the claude job above — keep both allowlists identical.
           claude_args: |
             --allowedTools "Bash(pnpm install:*),Bash(pnpm run format:*),Bash(pnpm run lint:*),Bash(pnpm run typecheck:*),Bash(pnpm run build:*),Bash(pnpm run coverage:*),Bash(pnpm test:*),Bash(pnpm run test:*),Bash(openspec:*),Bash(mkdir:*),Bash(mv:*),Bash(gh pr edit:*),Bash(gh pr comment:*),Bash(gh pr view:*)"
