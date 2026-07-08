@@ -8,6 +8,7 @@ import { ChatOpenRouter } from "@langchain/openrouter";
 import { createDeepAgent, LocalShellBackend } from "deepagents";
 import { DEBUG_ENV_KEYS, loadOpenWikiEnv, openWikiEnvDir } from "../env.js";
 import { isFileNotFoundError } from "../fs-errors.js";
+import { runOkfPass } from "./okf.js";
 import { createSystemPrompt, createUserPrompt } from "./prompt.js";
 import type {
   OpenWikiCommand,
@@ -174,12 +175,29 @@ async function runOpenWikiAgentCore(
   emitDebug(options, "stream=completed");
   await chmodIfExists(checkpointPath, 0o600);
 
+  let okfConformant: boolean | undefined;
+
   if (
     command !== "chat" &&
     openWikiSnapshotBefore !== (await createOpenWikiContentSnapshot(cwd))
   ) {
     await writeLastUpdateMetadata(command, cwd, modelId);
     emitDebug(options, "metadata=written");
+
+    if (options.okf === true) {
+      const okfReport = await runOkfPass(cwd);
+      okfConformant = okfReport.conformant;
+      emitDebug(
+        options,
+        `okf.pass conformant=${okfReport.conformant} issues=${okfReport.issues.length}`,
+      );
+      options.onEvent?.({
+        type: "text",
+        text: okfReport.conformant
+          ? "OKF conformance pass: all pages conformant."
+          : `OKF conformance pass: ${okfReport.issues.length} issue(s) found.`,
+      });
+    }
   } else {
     emitDebug(
       options,
@@ -192,6 +210,7 @@ async function runOpenWikiAgentCore(
   return {
     command,
     model: modelId,
+    ...(okfConformant !== undefined ? { okfConformant } : {}),
   };
 }
 

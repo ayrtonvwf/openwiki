@@ -4,6 +4,7 @@ export type OpenWikiRunResult = {
   command: OpenWikiCommand;
   model: string;
   skipped?: boolean;
+  okfConformant?: boolean;
 };
 
 export type OpenWikiRunEvent =
