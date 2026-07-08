@@ -232,6 +232,55 @@ export function resolveOkfEnabled(
   return value === "1" || value === "true";
 }
 
+const REPO_DOC_TYPE_NAME_PATTERN = /^[A-Za-z][A-Za-z ]*$/u;
+const REPO_DOC_TYPE_DIRECTORY_PATTERN = /^[a-z][a-z-]*$/u;
+
+/**
+ * Validates `REPO_DOC_TYPES` entries at module load so that only plain
+ * alphabetic labels and lowercase kebab-case directories (or the root
+ * directory, represented by "") can ever reach a prompt or frontmatter.
+ */
+function assertSanitizedRepoDocTypes(
+  types: Record<string, string>,
+): Readonly<Record<string, string>> {
+  for (const [type, directory] of Object.entries(types)) {
+    if (!REPO_DOC_TYPE_NAME_PATTERN.test(type)) {
+      throw new Error(
+        `Invalid REPO_DOC_TYPES type label: ${JSON.stringify(type)}`,
+      );
+    }
+
+    if (directory !== "" && !REPO_DOC_TYPE_DIRECTORY_PATTERN.test(directory)) {
+      throw new Error(
+        `Invalid REPO_DOC_TYPES directory for ${JSON.stringify(type)}: ` +
+          JSON.stringify(directory),
+      );
+    }
+  }
+
+  return Object.freeze(types);
+}
+
+/**
+ * Default OKF type taxonomy (§4.4): maps each documentation type to the
+ * bundle directory it applies to. The "Repository Overview" type applies to
+ * the bundle root, so its directory is "". Adding a new type is a one-line
+ * change.
+ */
+export const REPO_DOC_TYPES: Readonly<Record<string, string>> =
+  assertSanitizedRepoDocTypes({
+    "Repository Overview": "",
+    Architecture: "architecture",
+    Workflow: "workflows",
+    "Domain Concept": "domain",
+    "API Reference": "api",
+    "Data Model": "data-models",
+    Operations: "operations",
+    Integration: "integrations",
+    Testing: "testing",
+    Reference: "reference",
+  });
+
 export function normalizeModelId(value: string): string {
   return value.trim();
 }

@@ -133,7 +133,7 @@ async function runOpenWikiAgentCore(
       timeout: 120,
       virtualMode: true,
     }),
-    systemPrompt: createSystemPrompt(command),
+    systemPrompt: createSystemPrompt(command, { okf: options.okf === true }),
   });
   emitDebug(options, "agent=created");
 

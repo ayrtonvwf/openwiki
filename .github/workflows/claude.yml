@@ -53,7 +53,5 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # Give Claude the project's real toolchain so it can validate its own changes.
-          # Glob syntax (pnpm:*) matches every subcommand — exact strings like
-          # "Bash(pnpm run typecheck)" failed to pre-approve and forced interactive approval.
           claude_args: |
-            --allowedTools "Bash(pnpm:*),Bash(npx:*)"
+            --allowedTools "Bash(pnpm install),Bash(pnpm run format:check),Bash(pnpm run lint:check),Bash(pnpm run typecheck),Bash(pnpm test),Bash(pnpm run build)"
