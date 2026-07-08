@@ -8,6 +8,7 @@ import {
   isValidProvider,
   normalizeModelId,
   normalizeProvider,
+  REPO_DOC_TYPES,
   resolveConfiguredProvider,
   resolveOkfEnabled,
   resolveProviderBaseUrl,
@@ -142,6 +143,34 @@ describe("isValidBaseUrl", () => {
     expect(isValidBaseUrl("   ")).toBe(false);
     expect(isValidBaseUrl("not a url")).toBe(false);
     expect(isValidBaseUrl("ftp://example.com")).toBe(false);
+  });
+});
+
+describe("REPO_DOC_TYPES", () => {
+  test("is a single exported constant mapping each type to a directory", () => {
+    expect(REPO_DOC_TYPES).toEqual({
+      "Repository Overview": "",
+      Architecture: "architecture",
+      Workflow: "workflows",
+      "Domain Concept": "domain",
+      "API Reference": "api",
+      "Data Model": "data-models",
+      Operations: "operations",
+      Integration: "integrations",
+      Testing: "testing",
+      Reference: "reference",
+    });
+  });
+
+  test("is frozen so callers cannot mutate the shared taxonomy", () => {
+    expect(Object.isFrozen(REPO_DOC_TYPES)).toBe(true);
+  });
+
+  test("contains only sanitized labels and lowercase kebab-case directories", () => {
+    for (const [type, directory] of Object.entries(REPO_DOC_TYPES)) {
+      expect(type).toMatch(/^[A-Za-z][A-Za-z ]*$/u);
+      expect(directory).toMatch(/^$|^[a-z][a-z-]*$/u);
+    }
   });
 });
 

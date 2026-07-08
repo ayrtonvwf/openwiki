@@ -1,4 +1,8 @@
-import { OPEN_WIKI_DIR, UPDATE_METADATA_PATH } from "../constants.js";
+import {
+  OPEN_WIKI_DIR,
+  REPO_DOC_TYPES,
+  UPDATE_METADATA_PATH,
+} from "../constants.js";
 import { OpenWikiCommand, RunContext, UpdateMetadata } from "./types.js";
 
 function formatLastUpdate(lastUpdate: UpdateMetadata | null): string {
@@ -9,7 +13,16 @@ function formatLastUpdate(lastUpdate: UpdateMetadata | null): string {
   return JSON.stringify(lastUpdate, null, 2);
 }
 
-export function createSystemPrompt(command: OpenWikiCommand): string {
+export type CreateSystemPromptOptions = {
+  okf?: boolean;
+};
+
+export function createSystemPrompt(
+  command: OpenWikiCommand,
+  options: CreateSystemPromptOptions = {},
+): string {
+  const okfSection = options.okf ? `\n\n${createOkfContractSection()}` : "";
+
   return `
 You are OpenWiki, an expert technical writer, software architect, and product analyst.
 
@@ -128,7 +141,34 @@ Required documentation structure:
 
 Mode-specific behavior:
 ${createModeInstructions(command)}
+${okfSection}
 `.trim();
+}
+
+function createOkfContractSection(): string {
+  const directoryList = Object.entries(REPO_DOC_TYPES)
+    .map(
+      ([type, directory]) => `  - ${type} -> ${formatOkfDirectory(directory)}`,
+    )
+    .join("\n");
+
+  return `
+OKF output contract (--okf):
+- Write Markdown body content only: headings, prose, tables, and lists. Never emit a YAML frontmatter block (a leading \`---\` line, key/value pairs, and a closing \`---\`) on any page. The CLI stamps frontmatter deterministically after you finish; a model-written frontmatter block is not part of the contract and will be ignored or rejected.
+- Optionally make the first paragraph of a new page a single, short, plain-prose sentence summarizing the page. Code lifts this paragraph into the page's frontmatter description, so keep it factual and free of markdown formatting.
+- Use bundle-relative absolute links for internal references, for example /architecture/overview.md. Do not use relative links (../foo.md) or bare filenames.
+- Use conventional Markdown headings (one top-level heading, then nested sections) and include a "# Citations" section near the end of every page listing the source files or commits that back its claims.
+- Organize pages into directories matching this type taxonomy so directory-based type inference works correctly in later processing:
+${directoryList}
+- You may create an index.md at the bundle root that links to quickstart.md as an additional entry surface. quickstart.md remains required as the entrypoint; index.md is additive, not a replacement.
+- When editing a page that already has a frontmatter block, never drop, rewrite, or reformat that block. Edit only the body content below it and leave the existing \`---\` frontmatter untouched.
+`.trim();
+}
+
+function formatOkfDirectory(directory: string): string {
+  return directory === ""
+    ? `${OPEN_WIKI_DIR}/`
+    : `${OPEN_WIKI_DIR}/${directory}/`;
 }
 
 export function createModeInstructions(command: OpenWikiCommand): string {
