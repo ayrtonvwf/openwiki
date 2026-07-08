@@ -59,8 +59,11 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # Give Claude the project's real toolchain so it can validate its own changes.
-          # openspec:* / mkdir:* / mv:* are required for the /opsx:propose, /opsx:apply,
-          # and /opsx:archive commands mandated by CLAUDE.md's OpenSpec workflow.
+          # Give Claude the project's real toolchain so it can validate AND fix its own
+          # changes without hitting an approval prompt (CI has no interactive approver).
+          # Use ":*" prefix wildcards so both bare and argument forms match — the previous
+          # exact-match list rejected `pnpm install --no-frozen-lockfile`, the write-mode
+          # `format`/`lint --fix` scripts, `pnpm run test`, the openspec CLI, and gh edits,
+          # forcing every @claude PR to ship unformatted and unvalidated.
           claude_args: |
-            --allowedTools "Bash(pnpm install),Bash(pnpm run format:check),Bash(pnpm run lint:check),Bash(pnpm run typecheck),Bash(pnpm test),Bash(pnpm run build),Bash(openspec:*),Bash(mkdir:*),Bash(mv:*)"
+            --allowedTools "Bash(pnpm install:*),Bash(pnpm run format:*),Bash(pnpm run lint:*),Bash(pnpm run typecheck:*),Bash(pnpm run build:*),Bash(pnpm run coverage:*),Bash(pnpm test:*),Bash(pnpm run test:*),Bash(openspec:*),Bash(mkdir:*),Bash(mv:*),Bash(gh pr edit:*),Bash(gh pr comment:*),Bash(gh pr view:*)"
