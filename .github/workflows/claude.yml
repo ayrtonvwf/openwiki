@@ -48,10 +48,19 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # The openspec CLI (used by the /opsx:* commands and skills, per CLAUDE.md's
+      # required OpenSpec workflow) lives in node_modules/.bin and is invoked as a
+      # bare `openspec` command by those skills. Put it on PATH for the rest of
+      # the job so the Bash tool can actually find and run it.
+      - name: Add local CLI tools to PATH
+        run: echo "$PWD/node_modules/.bin" >> "$GITHUB_PATH"
+
       - name: Run Claude Code
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # Give Claude the project's real toolchain so it can validate its own changes.
+          # openspec:* / mkdir:* / mv:* are required for the /opsx:propose, /opsx:apply,
+          # and /opsx:archive commands mandated by CLAUDE.md's OpenSpec workflow.
           claude_args: |
-            --allowedTools "Bash(pnpm install),Bash(pnpm run format:check),Bash(pnpm run lint:check),Bash(pnpm run typecheck),Bash(pnpm test),Bash(pnpm run build)"
+            --allowedTools "Bash(pnpm install),Bash(pnpm run format:check),Bash(pnpm run lint:check),Bash(pnpm run typecheck),Bash(pnpm test),Bash(pnpm run build),Bash(openspec:*),Bash(mkdir:*),Bash(mv:*)"
