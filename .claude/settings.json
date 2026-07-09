@@ -5,9 +5,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "pnpm run format >/tmp/openwiki-format.log 2>&1; pnpm run lint >/tmp/openwiki-lint.log 2>&1; if ! pnpm run format:check >/tmp/openwiki-format-check.log 2>&1 || ! pnpm run lint:check >/tmp/openwiki-lint-check.log 2>&1; then cat /tmp/openwiki-format-check.log /tmp/openwiki-lint-check.log >&2; exit 2; fi",
+            "command": "if ! pnpm test >/tmp/openwiki-test.log 2>&1; then cat /tmp/openwiki-test.log >&2; exit 2; fi",
             "timeout": 120,
-            "statusMessage": "Running format and lint before finishing..."
+            "statusMessage": "Running tests before finishing..."
           }
         ]
       }
