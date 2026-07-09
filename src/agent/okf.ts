@@ -763,9 +763,10 @@ export async function runOkfPass(
  * Repair-disabled counterpart to `runOkfPass`: inspects the bundle exactly as
  * it exists on disk and never calls `stampPage` or `writeIfChanged`, so a
  * missing/invalid frontmatter block or malformed reserved file is reported
- * rather than repaired. Shares the same leaf check helpers as the generate
- * pass so the two entry points cannot silently diverge on what "conformant"
- * means.
+ * rather than repaired. Uses the same leaf check helpers (`checkIndexStructure`,
+ * `checkLogStructure`, and the frontmatter/field checks below) that `stampPage`
+ * must satisfy in the generate pass, so the two entry points are kept aligned
+ * on what "conformant" means without duplicating the validation logic.
  */
 export async function verifyOkfConformance(
   cwd: string,

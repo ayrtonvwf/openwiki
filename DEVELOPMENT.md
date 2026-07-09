@@ -86,6 +86,8 @@ Run the conformance check locally against the current repo's `openwiki/` bundle:
 openwiki --okf-check
 ```
 
+`--okf-check` is standalone: `cli.tsx` renders `OkfCheckView` and returns before any other run logic, so co-passed flags (`--init`, `--update`, `--modelId`, a chat message) are parsed but silently ignored — don't combine it with other flags.
+
 Run the OKF test suite:
 
 ```sh

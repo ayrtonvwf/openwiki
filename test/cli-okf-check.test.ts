@@ -53,6 +53,7 @@ describe("openwiki --okf-check CLI", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toMatch(/conformant/u);
+    expect(result.stdout).not.toMatch(/non-conformant/u);
   }, 20_000);
 
   test("exits non-zero and reports the failing file for a nonconformant bundle", async () => {

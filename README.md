@@ -126,6 +126,8 @@ Because the code — not the model — owns the frontmatter block, a bundle prod
 openwiki --okf-check
 ```
 
+`--okf-check` is standalone: it runs the conformance check and exits without starting the documentation agent, so any other flags or a message passed alongside it (`--init`, `--update`, `--modelId`, etc.) are ignored.
+
 ## Contributing
 
 Contributions are welcome! Please read [CONTRIBUTING.md](./CONTRIBUTING.md) before opening a PR. We intentionally keep PRs tightly scoped to one change each, and PRs that bundle unrelated changes may be closed with a request to split them.
