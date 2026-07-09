@@ -21,6 +21,10 @@ import {
   type CredentialDiagnostic,
 } from "./env.js";
 import { createOpenWikiThreadId, runOpenWikiAgent } from "./agent/index.js";
+import {
+  verifyOkfConformance,
+  type OkfConformanceReport,
+} from "./agent/okf.js";
 import { getErrorMessage, sanitizeDiagnosticText } from "./diagnostics.js";
 import { stripHtmlTags } from "./utils.js";
 import {
@@ -235,6 +239,10 @@ function App({ command }: AppProps) {
       return;
     }
 
+    if (command.okfCheck) {
+      return;
+    }
+
     if (resolvedCommand === null) {
       return;
     }
@@ -403,6 +411,10 @@ function App({ command }: AppProps) {
         <HelpView />
       </Box>
     );
+  }
+
+  if (command.kind === "run" && command.okfCheck) {
+    return <OkfCheckView modelId={command.modelId} />;
   }
 
   if (command.kind === "run" && command.dryRun) {
@@ -651,6 +663,77 @@ function DryRunView({
         {userMessage ? (
           <StatusLine tone="muted" label="Message" value={userMessage} />
         ) : null}
+      </Panel>
+    </Box>
+  );
+}
+
+function OkfCheckView({ modelId }: { modelId: string | null }) {
+  const app = useApp();
+  const [report, setReport] = useState<OkfConformanceReport | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    verifyOkfConformance(process.cwd())
+      .then((result) => {
+        if (cancelled) {
+          return;
+        }
+
+        setReport(result);
+        process.exitCode = result.conformant ? 0 : 1;
+        app.exit();
+      })
+      .catch((thrownError: unknown) => {
+        if (cancelled) {
+          return;
+        }
+
+        setError(getErrorMessage(thrownError));
+        process.exitCode = 1;
+        app.exit();
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [app]);
+
+  return (
+    <Box flexDirection="column">
+      <Header modelId={modelId} subtitle="OKF conformance check" />
+      <Panel title="OKF Conformance">
+        {error ? (
+          <StatusLine tone="error" label="Error" value={error} />
+        ) : report ? (
+          <>
+            <StatusLine
+              tone={report.conformant ? "success" : "error"}
+              label="Result"
+              value={report.conformant ? "conformant" : "non-conformant"}
+            />
+            {report.issues.length === 0 ? (
+              <StatusLine tone="muted" label="Issues" value="none" />
+            ) : (
+              report.issues.map((issue, index) => (
+                <StatusLine
+                  key={`${issue.file}-${index}`}
+                  tone={issue.severity === "error" ? "error" : "muted"}
+                  label={issue.file}
+                  value={`${issue.severity}: ${issue.message}`}
+                />
+              ))
+            )}
+          </>
+        ) : (
+          <StatusLine
+            tone="active"
+            label="Checking"
+            value="verifying OKF conformance"
+          />
+        )}
       </Panel>
     </Box>
   );
@@ -2979,7 +3062,12 @@ const command = resolveStartupCommand(parsedCommand);
 if (shouldPrintStartupError(argv, parsedCommand, command)) {
   process.stderr.write(`${command.message}\n`);
   process.exitCode = command.exitCode;
-} else if (command.kind === "run" && command.print && !command.dryRun) {
+} else if (
+  command.kind === "run" &&
+  command.print &&
+  !command.dryRun &&
+  !command.okfCheck
+) {
   await runPrintCommand(command);
 } else {
   render(<App command={command} />);

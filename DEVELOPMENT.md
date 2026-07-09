@@ -68,3 +68,26 @@ Real runs can write:
 Scheduled update workflow example:
 
 - `examples/openwiki-update.yml`
+
+## OKF (code-owned frontmatter)
+
+`--okf` output follows [OKF v0.1](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md) (see `specs/openwiki-okf-implementation-report.md` for the full design). The model never writes frontmatter itself: it only produces the page body (the `#` heading and prose), and `src/agent/okf.ts` owns every managed field.
+
+`src/agent/okf.ts` responsibilities:
+
+- `stampPage` / `runOkfPass` — the generate-and-repair path, invoked from `runOpenWikiAgentCore` (`src/agent/index.ts`) only when `--okf` is set and the run changed `openwiki/` content. It recomputes `type` (from `REPO_DOC_TYPES`, keyed by top-level directory), `title` and `description` (parsed from the body), and `timestamp` (advanced only when the body hash changed since the last run) for every non-reserved page, regenerates the root `index.md`, and appends a `log.md` entry.
+- `verifyOkfConformance` — the repair-disabled counterpart used by `--okf-check`. It walks the same bundle and applies the same leaf checks (`findMissingOkfFields`, `findInvalidFrontmatter`, `checkIndexStructure`, `checkLogStructure`) but never stamps, writes, or generates anything, so a bundle can be inspected without mutating it.
+
+`openwiki/.okf-state.json` is per-page machine state (a body hash and timestamp per page) that lets `runOkfPass` tell "body genuinely edited" apart from "re-stamped with no change," so timestamps only advance on a real edit. It is excluded from the content-change snapshot (`createOpenWikiContentSnapshot` in `src/agent/utils.ts`) and from the OKF markdown walk, since it is bookkeeping, not documentation content.
+
+Run the conformance check locally against the current repo's `openwiki/` bundle:
+
+```sh
+openwiki --okf-check
+```
+
+Run the OKF test suite:
+
+```sh
+pnpm test test/okf.test.ts test/agent-okf-integration.test.ts test/cli-okf-check.test.ts
+```
