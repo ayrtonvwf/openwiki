@@ -8,3 +8,14 @@ I am following no rule here
 ## New subheader
 
 > Some content
+
+### There should be empty lines between markdown elements
+
+This change will be autoformatted
+
+1. This is for demonstration purposes
+2. I will delete this file later
+
+## A second level header
+
+Some more content
