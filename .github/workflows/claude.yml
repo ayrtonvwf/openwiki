@@ -74,9 +74,13 @@ jobs:
           # exact-match list rejected `pnpm install --no-frozen-lockfile`, the write-mode
           # `format`/`lint --fix` scripts, `pnpm run test`, the openspec CLI, and gh edits,
           # forcing every @claude PR to ship unformatted and unvalidated.
+          # lint-staged (run by the husky pre-commit hook on every `git commit`) spawns
+          # `prettier --write` and `eslint --fix` directly rather than via a pnpm script,
+          # so those binaries need their own entries or the hook's own fixers get blocked
+          # inside the commit and Claude is left with a still-failing hook to work around.
           # NOTE: allowlist mirrored in the claude-opus job below — keep both identical.
           claude_args: |
-            --model claude-sonnet-5 --allowedTools "Bash(pnpm install:*),Bash(pnpm run format:*),Bash(pnpm run lint:*),Bash(pnpm run typecheck:*),Bash(pnpm run build:*),Bash(pnpm run coverage:*),Bash(pnpm test:*),Bash(pnpm run test:*),Bash(openspec:*),Bash(pnpm openspec:*),Bash(pnpm run openspec:*),Bash(npx openspec:*),Bash(mkdir:*),Bash(mv:*),Bash(gh pr create:*),Bash(gh pr edit:*),Bash(gh pr comment:*),Bash(gh pr view:*)"
+            --model claude-sonnet-5 --allowedTools "Bash(pnpm install:*),Bash(pnpm run format:*),Bash(pnpm run lint:*),Bash(pnpm run typecheck:*),Bash(pnpm run build:*),Bash(pnpm run coverage:*),Bash(pnpm test:*),Bash(pnpm run test:*),Bash(pnpm exec lint-staged:*),Bash(pnpm exec prettier:*),Bash(pnpm exec eslint:*),Bash(npx prettier:*),Bash(npx eslint:*),Bash(prettier:*),Bash(eslint:*),Bash(openspec:*),Bash(pnpm openspec:*),Bash(pnpm run openspec:*),Bash(npx openspec:*),Bash(mkdir:*),Bash(mv:*),Bash(gh pr create:*),Bash(gh pr edit:*),Bash(gh pr comment:*),Bash(gh pr view:*)"
 
   claude-opus:
     if: |
@@ -138,6 +142,10 @@ jobs:
           # exact-match list rejected `pnpm install --no-frozen-lockfile`, the write-mode
           # `format`/`lint --fix` scripts, `pnpm run test`, the openspec CLI, and gh edits,
           # forcing every @claude-opus PR to ship unformatted and unvalidated.
+          # lint-staged (run by the husky pre-commit hook on every `git commit`) spawns
+          # `prettier --write` and `eslint --fix` directly rather than via a pnpm script,
+          # so those binaries need their own entries or the hook's own fixers get blocked
+          # inside the commit and Claude is left with a still-failing hook to work around.
           # NOTE: allowlist mirrored in the claude job above — keep both identical.
           claude_args: |
-            --model claude-opus-4-8 --allowedTools "Bash(pnpm install:*),Bash(pnpm run format:*),Bash(pnpm run lint:*),Bash(pnpm run typecheck:*),Bash(pnpm run build:*),Bash(pnpm run coverage:*),Bash(pnpm test:*),Bash(pnpm run test:*),Bash(openspec:*),Bash(pnpm openspec:*),Bash(pnpm run openspec:*),Bash(npx openspec:*),Bash(mkdir:*),Bash(mv:*),Bash(gh pr create:*),Bash(gh pr edit:*),Bash(gh pr comment:*),Bash(gh pr view:*)"
+            --model claude-opus-4-8 --allowedTools "Bash(pnpm install:*),Bash(pnpm run format:*),Bash(pnpm run lint:*),Bash(pnpm run typecheck:*),Bash(pnpm run build:*),Bash(pnpm run coverage:*),Bash(pnpm test:*),Bash(pnpm run test:*),Bash(pnpm exec lint-staged:*),Bash(pnpm exec prettier:*),Bash(pnpm exec eslint:*),Bash(npx prettier:*),Bash(npx eslint:*),Bash(prettier:*),Bash(eslint:*),Bash(openspec:*),Bash(pnpm openspec:*),Bash(pnpm run openspec:*),Bash(npx openspec:*),Bash(mkdir:*),Bash(mv:*),Bash(gh pr create:*),Bash(gh pr edit:*),Bash(gh pr comment:*),Bash(gh pr view:*)"

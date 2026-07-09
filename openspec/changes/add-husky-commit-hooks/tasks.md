@@ -13,7 +13,7 @@
 ## 3. Ensure hooks fire for GitHub Actions commits
 
 - [ ] 3.1 Verify `prepare` runs during dependency install in the Claude automation environment so `.husky` hooks are active.
-- [ ] 3.2 Verify commits in that environment are not created with `--no-verify` and that `HUSKY=0` is not set, so the hook fires and autofixes automation commits.
+- [x] 3.2 Verify commits in that environment are not created with `--no-verify` and that `HUSKY=0` is not set, so the hook fires and autofixes automation commits.
 
 ## 4. Reduce the agent Stop hook to tests only
 

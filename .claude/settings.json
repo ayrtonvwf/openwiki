@@ -1,5 +1,16 @@
 {
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c \"import json,shlex,sys\\ndata=json.load(sys.stdin)\\ncmd=data.get('tool_input',{}).get('command','')\\ntry:\\n    tokens=shlex.split(cmd)\\nexcept ValueError:\\n    tokens=cmd.split()\\nfor i in range(len(tokens)-1):\\n    if tokens[i]=='git' and tokens[i+1]=='commit':\\n        for t in tokens[i+2:]:\\n            if t in ('&&','||',';','|'):\\n                break\\n            if t=='--no-verify' or (t.startswith('-') and not t.startswith('--') and 'n' in t[1:]):\\n                print('Blocked: git commit --no-verify/-n bypasses the pre-commit hook (lint-staged/prettier/eslint). Fix the underlying lint/format failure instead of skipping the hook.',file=sys.stderr)\\n                sys.exit(2)\\n\""
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [
