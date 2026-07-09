@@ -76,7 +76,7 @@ jobs:
           # forcing every @claude PR to ship unformatted and unvalidated.
           # NOTE: allowlist mirrored in the claude-opus job below — keep both identical.
           claude_args: |
-            --model claude-sonnet-5 --allowedTools "Bash(pnpm install:*),Bash(pnpm run format:*),Bash(pnpm run lint:*),Bash(pnpm run typecheck:*),Bash(pnpm run build:*),Bash(pnpm run coverage:*),Bash(pnpm test:*),Bash(pnpm run test:*),Bash(openspec:*),Bash(mkdir:*),Bash(mv:*),Bash(gh pr create:*),Bash(gh pr edit:*),Bash(gh pr comment:*),Bash(gh pr view:*)"
+            --model claude-sonnet-5 --allowedTools "Bash(pnpm install:*),Bash(pnpm run format:*),Bash(pnpm run lint:*),Bash(pnpm run typecheck:*),Bash(pnpm run build:*),Bash(pnpm run coverage:*),Bash(pnpm test:*),Bash(pnpm run test:*),Bash(openspec:*),Bash(pnpm openspec:*),Bash(pnpm run openspec:*),Bash(npx openspec:*),Bash(mkdir:*),Bash(mv:*),Bash(gh pr create:*),Bash(gh pr edit:*),Bash(gh pr comment:*),Bash(gh pr view:*)"
 
   claude-opus:
     if: |
@@ -140,4 +140,4 @@ jobs:
           # forcing every @claude-opus PR to ship unformatted and unvalidated.
           # NOTE: allowlist mirrored in the claude job above — keep both identical.
           claude_args: |
-            --model claude-opus-4-8 --allowedTools "Bash(pnpm install:*),Bash(pnpm run format:*),Bash(pnpm run lint:*),Bash(pnpm run typecheck:*),Bash(pnpm run build:*),Bash(pnpm run coverage:*),Bash(pnpm test:*),Bash(pnpm run test:*),Bash(openspec:*),Bash(mkdir:*),Bash(mv:*),Bash(gh pr create:*),Bash(gh pr edit:*),Bash(gh pr comment:*),Bash(gh pr view:*)"
+            --model claude-opus-4-8 --allowedTools "Bash(pnpm install:*),Bash(pnpm run format:*),Bash(pnpm run lint:*),Bash(pnpm run typecheck:*),Bash(pnpm run build:*),Bash(pnpm run coverage:*),Bash(pnpm test:*),Bash(pnpm run test:*),Bash(openspec:*),Bash(pnpm openspec:*),Bash(pnpm run openspec:*),Bash(npx openspec:*),Bash(mkdir:*),Bash(mv:*),Bash(gh pr create:*),Bash(gh pr edit:*),Bash(gh pr comment:*),Bash(gh pr view:*)"
