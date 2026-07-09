@@ -36,6 +36,7 @@
     "lint:check": "eslint .",
     "prebuild": "pnpm run clean",
     "prepack": "pnpm run build",
+    "prepare": "husky",
     "start": "node dist/cli.js",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json"
@@ -60,11 +61,22 @@
     "@types/react": "^18.3.17",
     "@vitest/coverage-v8": "^4.1.10",
     "eslint": "^10.5.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.2.10",
     "prettier": "^3.8.4",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.62.0",
     "vitest": "^4.1.10"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx,mjs,cjs}": [
+      "prettier --write",
+      "bash -c 'eslint --fix \"$@\"; exit 0' --"
+    ],
+    "*.{json,md,yml,yaml,css}": [
+      "prettier --write"
+    ]
   },
   "pnpm": {
     "onlyBuiltDependencies": [

@@ -1,8 +1,8 @@
 ## 1. Install and register husky + lint-staged
 
-- [ ] 1.1 Add `husky` (v9+) and `lint-staged` as devDependencies (`pnpm add -D husky lint-staged`), updating `pnpm-lock.yaml`.
-- [ ] 1.2 Add a `"prepare": "husky"` script to `package.json` so hooks install on `pnpm install`.
-- [ ] 1.3 Add a `lint-staged` config to `package.json`: `prettier --write` for supported file types, and `eslint --fix` for JS/TS files.
+- [x] 1.1 Add `husky` (v9+) and `lint-staged` as devDependencies (`pnpm add -D husky lint-staged`), updating `pnpm-lock.yaml`.
+- [x] 1.2 Add a `"prepare": "husky"` script to `package.json` so hooks install on `pnpm install`.
+- [x] 1.3 Add a `lint-staged` config to `package.json`: `prettier --write` for supported file types, and `eslint --fix` for JS/TS files.
 
 ## 2. Non-blocking autofixing pre-commit hook
 
