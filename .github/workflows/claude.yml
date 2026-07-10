@@ -98,6 +98,8 @@ jobs:
       # on the default branch so a @claude mention on main/an issue can never auto-push.
       # NOTE: mirrored in the claude-opus job below — keep both identical.
       - name: Format and push any remaining changes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           current_branch=$(git rev-parse --abbrev-ref HEAD)
           if [ "$current_branch" = "${{ github.event.repository.default_branch }}" ]; then
@@ -113,7 +115,7 @@ jobs:
             git config user.email "41898282+claude[bot]@users.noreply.github.com"
             git add -A
             git commit -m "style: auto-format via CI"
-            git push origin "HEAD:$current_branch"
+            git push "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" "HEAD:$current_branch"
           fi
 
   claude-opus:
@@ -193,6 +195,8 @@ jobs:
       # on the default branch so a @claude mention on main/an issue can never auto-push.
       # NOTE: mirrored in the claude job above — keep both identical.
       - name: Format and push any remaining changes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           current_branch=$(git rev-parse --abbrev-ref HEAD)
           if [ "$current_branch" = "${{ github.event.repository.default_branch }}" ]; then
@@ -208,5 +212,5 @@ jobs:
             git config user.email "41898282+claude[bot]@users.noreply.github.com"
             git add -A
             git commit -m "style: auto-format via CI"
-            git push origin "HEAD:$current_branch"
+            git push "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" "HEAD:$current_branch"
           fi
