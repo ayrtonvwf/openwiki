@@ -8,10 +8,7 @@ import { describe, expect, test } from "vitest";
 
 const execFileAsync = promisify(execFile);
 
-const REPO_ROOT = path.join(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "..",
-);
+const REPO_ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CLI_PATH = path.join(REPO_ROOT, "src/cli.tsx");
 const TSX_BIN = path.join(REPO_ROOT, "node_modules/.bin/tsx");
 const OKF_FIXTURES_ROOT = path.join(REPO_ROOT, "src/agent/__fixtures__/okf");
