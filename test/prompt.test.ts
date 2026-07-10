@@ -1,6 +1,14 @@
 import { describe, expect, test } from "vitest";
 import { createSystemPrompt } from "../src/agent/prompt.ts";
-import { REPO_DOC_TYPES } from "../src/constants.ts";
+import { CODE_DOC_TYPES, PERSONAL_DOC_TYPES } from "../src/constants.ts";
+
+function extractOkfContractSection(prompt: string): string {
+  const start = prompt.indexOf("OKF output contract (--okf):");
+
+  expect(start).toBeGreaterThanOrEqual(0);
+
+  return prompt.slice(start);
+}
 
 describe("createSystemPrompt", () => {
   const commands = ["chat", "init", "update"] as const;
@@ -50,12 +58,36 @@ describe("createSystemPrompt", () => {
       expect(prompt).toContain("# Citations");
     });
 
-    test(`(${command}) OKF contract lists every REPO_DOC_TYPES entry`, () => {
+    test(`(${command}) OKF contract lists every taxonomy entry for the default (local-wiki) mode`, () => {
       const prompt = createSystemPrompt(command, { okf: true });
 
-      for (const type of Object.keys(REPO_DOC_TYPES)) {
+      for (const type of Object.keys(PERSONAL_DOC_TYPES.types)) {
         expect(prompt).toContain(type);
       }
+    });
+
+    test(`(${command}) OKF contract lists every taxonomy entry for repository mode`, () => {
+      const prompt = createSystemPrompt(command, {
+        okf: true,
+        outputMode: "repository",
+      });
+
+      for (const type of Object.keys(CODE_DOC_TYPES.types)) {
+        expect(prompt).toContain(type);
+      }
+    });
+
+    test(`(${command}) personal-mode OKF contract lists personal types, not code-only types`, () => {
+      const prompt = createSystemPrompt(command, {
+        okf: true,
+        outputMode: "local-wiki",
+      });
+      const section = extractOkfContractSection(prompt);
+
+      expect(section).toContain("Source");
+      expect(section).toContain("Topic");
+      expect(section).not.toContain("Architecture");
+      expect(section).not.toContain("Data Model");
     });
 
     test(`(${command}) OKF contract allows index.md alongside quickstart.md`, () => {

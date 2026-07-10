@@ -26,6 +26,7 @@ import {
   type OkfState,
   type PageStampResult,
 } from "../src/agent/okf.ts";
+import { PERSONAL_DOC_TYPES } from "../src/constants.ts";
 
 const OKF_FIXTURES_ROOT = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -445,6 +446,55 @@ describe("runOkfPass", () => {
     expect(await readFile(overviewPath, "utf8")).toBe(before.overview);
     expect(await readFile(indexPath, "utf8")).toBe(before.index);
     expect((await stat(quickstartPath)).mtimeMs).toBe(before.quickstartMtime);
+  });
+
+  test("stamps a personal-mode sources/ page with a personal type while a code-mode operations/ page keeps its code type", async () => {
+    const personalRepo = await mkdtemp(
+      path.join(tmpdir(), "openwiki-okf-personal-"),
+    );
+    await mkdir(path.join(personalRepo, "openwiki", "sources"), {
+      recursive: true,
+    });
+    await writeFile(
+      path.join(personalRepo, "openwiki", "quickstart.md"),
+      "# Quickstart\n\nA short factual intro sentence.\n",
+      "utf8",
+    );
+    await writeFile(
+      path.join(personalRepo, "openwiki", "sources", "gmail.md"),
+      "# Gmail\n\nNotes gathered from the Gmail connector.\n",
+      "utf8",
+    );
+
+    await runOkfPass(personalRepo, TEST_RUN_INFO, PERSONAL_DOC_TYPES);
+
+    const sourcePage = await readFile(
+      path.join(personalRepo, "openwiki", "sources", "gmail.md"),
+      "utf8",
+    );
+    expect(
+      parseFrontmatter(splitFrontmatter(sourcePage).frontmatter),
+    ).toMatchObject({ type: "Source" });
+
+    const codeRepo = await createOpenWikiFixture();
+    await mkdir(path.join(codeRepo, "openwiki", "operations"), {
+      recursive: true,
+    });
+    await writeFile(
+      path.join(codeRepo, "openwiki", "operations", "deploy.md"),
+      "# Deploy\n\nHow to deploy the service.\n",
+      "utf8",
+    );
+
+    await runOkfPass(codeRepo, TEST_RUN_INFO);
+
+    const operationsPage = await readFile(
+      path.join(codeRepo, "openwiki", "operations", "deploy.md"),
+      "utf8",
+    );
+    expect(
+      parseFrontmatter(splitFrontmatter(operationsPage).frontmatter),
+    ).toMatchObject({ type: "Operations" });
   });
 
   test("flags a fallback type classification without failing conformance", async () => {

@@ -41,6 +41,7 @@ import {
   getProviderApiKeyEnvKey,
   getProviderBaseUrlEnvKey,
   getProviderLabel,
+  getTaxonomyForMode,
   isValidModelId,
   normalizeModelId,
   OPENAI_COMPATIBLE_BASE_URL_ENV_KEY,
@@ -240,7 +241,11 @@ async function runOpenWikiAgentCore(
 
     if (options.okf === true) {
       const changeSummary = await summarizeOkfRunChange(cwd);
-      const okfReport = await runOkfPass(cwd, { command, changeSummary });
+      const okfReport = await runOkfPass(
+        cwd,
+        { command, changeSummary },
+        getTaxonomyForMode(outputMode),
+      );
       okfConformant = okfReport.conformant;
       emitDebug(
         options,

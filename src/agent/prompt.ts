@@ -1,4 +1,8 @@
-import { OPEN_WIKI_DIR, REPO_DOC_TYPES } from "../constants.js";
+import {
+  DocTypeTaxonomy,
+  getTaxonomyForMode,
+  OPEN_WIKI_DIR,
+} from "../constants.js";
 import {
   OpenWikiCommand,
   OpenWikiOutputMode,
@@ -25,7 +29,9 @@ export function createSystemPrompt(
 ): string {
   const outputMode = options.outputMode ?? "local-wiki";
   const output = getOutputPromptConfig(outputMode);
-  const okfSection = options.okf ? `\n\n${createOkfContractSection()}` : "";
+  const okfSection = options.okf
+    ? `\n\n${createOkfContractSection(getTaxonomyForMode(outputMode))}`
+    : "";
 
   return `
 You are OpenWiki, an expert technical writer, software architect, and product analyst.
@@ -169,8 +175,8 @@ ${okfSection}
 `.trim();
 }
 
-function createOkfContractSection(): string {
-  const directoryList = Object.entries(REPO_DOC_TYPES)
+function createOkfContractSection(taxonomy: DocTypeTaxonomy): string {
+  const directoryList = Object.entries(taxonomy.types)
     .map(
       ([type, directory]) => `  - ${type} -> ${formatOkfDirectory(directory)}`,
     )

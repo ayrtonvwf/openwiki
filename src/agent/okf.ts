@@ -3,7 +3,9 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { parse as parseYaml } from "yaml";
 import {
-  getRepoDocTypeForDirectory,
+  CODE_DOC_TYPES,
+  DocTypeTaxonomy,
+  getDocTypeForDirectory,
   OKF_LOG_HEADER,
   OKF_LOG_PATH,
   OKF_STATE_PATH,
@@ -317,13 +319,18 @@ export function stampPage(
   relativePath: string,
   rawContent: string,
   now: string,
+  // Default is a test-only convenience for callers that don't care about
+  // mode; production always passes the mode-derived taxonomy explicitly
+  // (see runOkfPass's caller in agent/index.ts).
+  taxonomy: DocTypeTaxonomy = CODE_DOC_TYPES,
   priorState?: OkfPageState,
 ): PageStampResult {
   const { frontmatter: rawFrontmatter, body } = splitFrontmatter(rawContent);
   const previousFields = parseFrontmatter(rawFrontmatter) ?? {};
   const bodyHash = hashBody(body);
 
-  const { type, isFallback } = getRepoDocTypeForDirectory(
+  const { type, isFallback } = getDocTypeForDirectory(
+    taxonomy,
     getTopLevelDirectory(relativePath),
   );
   const title = extractTitle(body, relativePath);
@@ -669,6 +676,10 @@ async function buildUpdatedLog(
 export async function runOkfPass(
   cwd: string,
   runInfo: { command: OpenWikiCommand; changeSummary: string },
+  // Default is a test-only convenience for callers that don't care about
+  // mode; production always passes the mode-derived taxonomy explicitly
+  // (see the call site in agent/index.ts).
+  taxonomy: DocTypeTaxonomy = CODE_DOC_TYPES,
 ): Promise<OkfConformanceReport> {
   const now = new Date().toISOString();
   const openWikiDir = path.join(cwd, OPEN_WIKI_DIR);
@@ -690,6 +701,7 @@ export async function runOkfPass(
       relativePath,
       rawContent,
       now,
+      taxonomy,
       state.pages[relativePath],
     );
 
