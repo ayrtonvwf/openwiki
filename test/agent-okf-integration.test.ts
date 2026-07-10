@@ -47,7 +47,7 @@ vi.mock("@langchain/langgraph-checkpoint-sqlite", () => ({
 
 vi.mock("deepagents", () => ({
   createDeepAgent: (options: { backend: { rootDir: string } }) => ({
-    stream: async () => {
+    streamEvents: async () => {
       const { mkdir, writeFile } = await import("node:fs/promises");
       const nodePath = await import("node:path");
       const cwd = options.backend.rootDir;
@@ -93,6 +93,7 @@ describe("runOpenWikiAgent OKF integration", () => {
     const result = await runOpenWikiAgent("init", repo, {
       modelId: "test-model",
       okf: true,
+      outputMode: "repository",
     });
 
     expect(result.okfConformant).toBe(true);
@@ -137,6 +138,7 @@ describe("runOpenWikiAgent OKF integration", () => {
 
     const result = await runOpenWikiAgent("init", repo, {
       modelId: "test-model",
+      outputMode: "repository",
     });
 
     expect(result.okfConformant).toBeUndefined();
