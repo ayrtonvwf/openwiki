@@ -1,3 +1,10 @@
+---
+type: "Reference"
+title: "Agent workflow"
+description: "The documentation agent is implemented in `src/agent/`."
+timestamp: "2026-07-10T16:08:03.323Z"
+---
+
 # Agent workflow
 
 The documentation agent is implemented in `src/agent/`. It takes a command (`chat`, `init`, or `update`), gathers repository context, builds prompts, runs a DeepAgents session, and records successful update metadata — but only if the documentation content actually changed.
@@ -74,6 +81,18 @@ That metadata is later used to scope update runs.
 
 `createOpenWikiContentSnapshot()` computes a SHA-256 hash of the entire `openwiki/` directory tree (excluding `.last-update.json`). The agent runtime takes a snapshot before and after the run. If they match — meaning the model made no documentation changes — the metadata file is not updated. This prevents scheduled update loops from churning the metadata when the wiki is already current.
 
+## OKF (Open Knowledge Format)
+
+When `--okf` is enabled (or `OPENWIKI_OKF=1`), the runtime writes pages with code-owned YAML frontmatter that includes `type`, `title`, `description`, and `timestamp`. This is handled after the model completes writing:
+
+- Each page's `type` is inferred from its directory (architecture/, domain/, operations/, etc.).
+- The `type` is mapped to a fixed taxonomy (Repository Overview, Architecture, Workflow, Domain Concept, API Reference, Data Model, Operations, Integration, Testing, Reference).
+- The `openwiki/index.md` is fully regenerated as a root index with `okf_version: "0.1"`.
+- The `openwiki/log.md` is appended with a dated entry recording the update.
+- Both reserved files are code-generated and should not be hand-edited.
+
+OKF state is tracked in `openwiki/.okf-state.json`. The conformance check (`--okf-check`) validates page frontmatter and reserved files without invoking the agent.
+
 ## Model errors
 
 The agent runtime uses only the selected provider and model for a run. If that
@@ -98,6 +117,7 @@ The agent is not just a generic chat wrapper. It is intentionally constrained so
 - Credential loading happens before model resolution; changes there affect both onboarding and agent startup.
 - When adding a provider, add a branch in `createModel()` and ensure the API key env key is checked in `ensureProviderKey()`.
 - The DeepAgents backend is configured with `virtualMode: true`, which is important for documentation-only behavior.
+- If OKF is enabled, `openwiki/index.md` and `openwiki/log.md` are fully code-generated after the agent finishes — do not rely on the agent to write these files. Also exclude `.okf-state.json` from snapshot comparisons if you change the snapshot logic.
 
 ## Source map
 

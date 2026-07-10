@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "pages": {
+    "agent/workflow.md": {
+      "bodyHash": "9480a5975f4122096b0a0a5c602604edf90d98a1a65f99223c407b890a232f4f",
+      "timestamp": "2026-07-10T16:08:03.323Z"
+    },
+    "architecture/overview.md": {
+      "bodyHash": "6f92bb6edbb49261d7ed987a094255a195bd6ace446fbdc6c01be4e17a01c65e",
+      "timestamp": "2026-07-10T16:07:17.514Z"
+    },
+    "cli/usage.md": {
+      "bodyHash": "f8716fe0d6386b0f96a8891f343616e0f114800b00f93ffc46cb52318e196520",
+      "timestamp": "2026-07-10T16:07:17.514Z"
+    },
+    "operations/credentials-and-updates.md": {
+      "bodyHash": "15a9f50fc05af2fe23c61ecebdc2aa4bed7fce07f4b484340de2a384b3e8ea16",
+      "timestamp": "2026-07-10T16:08:03.323Z"
+    },
+    "quickstart.md": {
+      "bodyHash": "a82ffb94af131f450a1b7dcaf0e222ec0b30a0802063186598f915885d662377",
+      "timestamp": "2026-07-10T16:07:17.514Z"
+    }
+  }
+}

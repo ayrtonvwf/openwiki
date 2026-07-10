@@ -1,3 +1,10 @@
+---
+type: "Operations"
+title: "Credentials and updates"
+description: "OpenWiki has two operational concerns that matter for both users and maintainers:"
+timestamp: "2026-07-10T16:08:03.323Z"
+---
+
 # Credentials and updates
 
 OpenWiki has two operational concerns that matter for both users and maintainers:
@@ -106,6 +113,7 @@ GitLab users should configure protected CI/CD variables for the model provider k
 - Scheduled automation depends on the same CLI entrypoint as local users, so workflow changes should be validated against `package.json` and the CLI help text.
 - When adding a provider, update `managedEnvKeys` in `src/env.ts` so the env file is formatted correctly and diagnostics cover the new key.
 - The content-snapshot check means CI runs that produce no changes will not update `.last-update.json` or open a PR with metadata-only changes.
+- When OKF is enabled, `openwiki/.okf-state.json` is created to track state; if you modify the OKF implementation or snapshot logic, decide whether this file should be excluded from content-change checks.
 
 ## Source map
 

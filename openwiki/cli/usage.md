@@ -1,3 +1,10 @@
+---
+type: "Reference"
+title: "CLI usage"
+description: "OpenWiki ships as a single `openwiki` binary and is intended to work both as an interactive terminal app and as a one-shot documentation runner."
+timestamp: "2026-07-10T16:07:17.514Z"
+---
+
 # CLI usage
 
 OpenWiki ships as a single `openwiki` binary and is intended to work both as an interactive terminal app and as a one-shot documentation runner.
@@ -12,10 +19,12 @@ From `src/commands.ts` and `README.md`, the supported entry patterns are:
 - `openwiki --update [message]` — refresh existing OpenWiki documentation.
 - `openwiki -p, --print` — run once and print the final assistant output (non-interactive).
 - `openwiki --modelId <id>` / `--model-id <id>` — choose a model ID for the run.
+- `openwiki --okf` / `--no-okf` — enable/disable OKF (Open Knowledge Format) frontmatter stamping for the run.
+- `openwiki --okf-check` — validate an existing OpenWiki bundle for OKF conformance without generating documentation.
 - `openwiki --help` / `-h` — print usage, options, and examples.
 - `openwiki --dry-run` — development-only option that avoids invoking the agent.
 
-The parser rejects incompatible combinations such as `--init` and `--update` together, and it requires a message or command when `--print` is used.
+The parser rejects incompatible combinations such as `--init` and `--update` together, and it requires a message or command when `--print` is used. The `--okf-check` flag is standalone and exits immediately; other flags passed with it are ignored.
 
 ### Auto-exit for init/update
 
@@ -24,6 +33,16 @@ When `--init` or `--update` is run in a TTY (without `--print`), the CLI starts 
 ### Non-interactive mode
 
 If stdin is not a TTY (e.g. CI), or `--print` is used, the CLI requires a provider API key to be already saved in `~/.openwiki/.env` or present in the environment. It will error with a clear message if the key is missing, rather than prompting interactively.
+
+### OKF (Open Knowledge Format)
+
+OKF is an optional code-owned frontmatter convention for documentation bundles. When enabled, OpenWiki stamps every page with metadata (`type`, `title`, `description`, `timestamp`), auto-generates `openwiki/index.md`, and appends dated entries to `openwiki/log.md`.
+
+- Use `--okf` to enable OKF for a single run, or `--no-okf` to disable it.
+- Set `OPENWIKI_OKF=1` (or `true`, case-insensitive) to enable OKF by default for all runs. Command-line flags override the environment variable.
+- Run `openwiki --okf-check` to validate an existing bundle without generating or repairing documentation. It exits 0 when all pages have valid frontmatter, and non-zero otherwise — suitable for a CI conformance gate.
+
+OKF pages are organized by directory into a fixed taxonomy: Repository Overview, Architecture, Workflow, Domain Concept, API Reference, Data Model, Operations, Integration, Testing, and Reference. See the [OKF spec](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md) and [OKF implementation report](../../specs/openwiki-okf-implementation-report.md) for design details.
 
 ## Interactive behavior
 
