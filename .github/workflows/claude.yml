@@ -13,13 +13,21 @@ on:
 # Only run when someone actually tags @claude or @claude-opus, to avoid spending on every comment.
 # @claude-opus contains the substring @claude, so the Sonnet job's gate must explicitly
 # exclude @claude-opus on every surface, otherwise both jobs would fire on an Opus mention.
+#
+# SECURITY: every gate is additionally locked to `github.actor == github.repository_owner`
+# so ONLY the repo owner's comments can trigger a run. Without this, any user the action's own
+# permission check lets through (anyone with write/collaborator access) could spend tokens by
+# tagging @claude. github.actor is the account that triggered the event and cannot be spoofed
+# in the comment body, and repository_owner is the account (or org) that owns the repo, so this
+# is the real author gate — keep it on every job.
 jobs:
   claude:
     if: |
+      github.actor == github.repository_owner && (
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude') && !contains(github.event.comment.body, '@claude-opus')) ||
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude') && !contains(github.event.comment.body, '@claude-opus')) ||
       (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude') && !contains(github.event.review.body, '@claude-opus')) ||
-      (github.event_name == 'issues' && ((contains(github.event.issue.body, '@claude') && !contains(github.event.issue.body, '@claude-opus')) || (contains(github.event.issue.title, '@claude') && !contains(github.event.issue.title, '@claude-opus'))))
+      (github.event_name == 'issues' && ((contains(github.event.issue.body, '@claude') && !contains(github.event.issue.body, '@claude-opus')) || (contains(github.event.issue.title, '@claude') && !contains(github.event.issue.title, '@claude-opus')))))
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -110,10 +118,11 @@ jobs:
 
   claude-opus:
     if: |
+      github.actor == github.repository_owner && (
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude-opus')) ||
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude-opus')) ||
       (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude-opus')) ||
-      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude-opus') || contains(github.event.issue.title, '@claude-opus')))
+      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude-opus') || contains(github.event.issue.title, '@claude-opus'))))
     runs-on: ubuntu-latest
     permissions:
       contents: write
