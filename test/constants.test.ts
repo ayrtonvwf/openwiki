@@ -1,15 +1,18 @@
 import { describe, expect, test } from "vitest";
 import {
+  CODE_DOC_TYPES,
   DEFAULT_MODEL_ID,
   DEFAULT_PROVIDER_RETRY_ATTEMPTS,
   DEFAULT_PROVIDER,
   getDefaultModelId,
+  getDocTypeForDirectory,
+  getTaxonomyForMode,
   isValidBaseUrl,
   isValidModelId,
   isValidProvider,
   normalizeModelId,
   normalizeProvider,
-  REPO_DOC_TYPES,
+  PERSONAL_DOC_TYPES,
   resolveConfiguredProvider,
   resolveOkfEnabled,
   resolveProviderBaseUrl,
@@ -179,9 +182,9 @@ describe("isValidBaseUrl", () => {
   });
 });
 
-describe("REPO_DOC_TYPES", () => {
+describe("CODE_DOC_TYPES", () => {
   test("is a single exported constant mapping each type to a directory", () => {
-    expect(REPO_DOC_TYPES).toEqual({
+    expect(CODE_DOC_TYPES.types).toEqual({
       "Repository Overview": "",
       Architecture: "architecture",
       Workflow: "workflows",
@@ -195,15 +198,79 @@ describe("REPO_DOC_TYPES", () => {
     });
   });
 
+  test("has the Reference fallback, preserving today's behavior", () => {
+    expect(CODE_DOC_TYPES.fallback).toBe("Reference");
+  });
+
   test("is frozen so callers cannot mutate the shared taxonomy", () => {
-    expect(Object.isFrozen(REPO_DOC_TYPES)).toBe(true);
+    expect(Object.isFrozen(CODE_DOC_TYPES.types)).toBe(true);
   });
 
   test("contains only sanitized labels and lowercase kebab-case directories", () => {
-    for (const [type, directory] of Object.entries(REPO_DOC_TYPES)) {
+    for (const [type, directory] of Object.entries(CODE_DOC_TYPES.types)) {
       expect(type).toMatch(/^[A-Za-z][A-Za-z ]*$/u);
       expect(directory).toMatch(/^$|^[a-z][a-z-]*$/u);
     }
+  });
+});
+
+describe("PERSONAL_DOC_TYPES", () => {
+  test("maps the canonical personal-wiki surfaces to their directories", () => {
+    expect(PERSONAL_DOC_TYPES.types).toEqual({
+      Overview: "",
+      Source: "sources",
+      Topic: "topics",
+    });
+  });
+
+  test("has the Note fallback", () => {
+    expect(PERSONAL_DOC_TYPES.fallback).toBe("Note");
+  });
+
+  test("contains only sanitized labels and lowercase kebab-case directories", () => {
+    for (const [type, directory] of Object.entries(
+      PERSONAL_DOC_TYPES.types,
+    )) {
+      expect(type).toMatch(/^[A-Za-z][A-Za-z ]*$/u);
+      expect(directory).toMatch(/^$|^[a-z][a-z-]*$/u);
+    }
+  });
+});
+
+describe("getDocTypeForDirectory", () => {
+  test("resolves a recognized directory to its taxonomy type", () => {
+    expect(getDocTypeForDirectory(CODE_DOC_TYPES, "operations")).toEqual({
+      type: "Operations",
+      isFallback: false,
+    });
+  });
+
+  test("falls back to the taxonomy's fallback for an unrecognized directory", () => {
+    expect(getDocTypeForDirectory(CODE_DOC_TYPES, "misc")).toEqual({
+      type: "Reference",
+      isFallback: true,
+    });
+  });
+
+  test("uses the personal taxonomy's own types and fallback", () => {
+    expect(getDocTypeForDirectory(PERSONAL_DOC_TYPES, "sources")).toEqual({
+      type: "Source",
+      isFallback: false,
+    });
+    expect(getDocTypeForDirectory(PERSONAL_DOC_TYPES, "misc")).toEqual({
+      type: "Note",
+      isFallback: true,
+    });
+  });
+});
+
+describe("getTaxonomyForMode", () => {
+  test("selects the code taxonomy for repository output mode", () => {
+    expect(getTaxonomyForMode("repository")).toBe(CODE_DOC_TYPES);
+  });
+
+  test("selects the personal taxonomy for local-wiki output mode", () => {
+    expect(getTaxonomyForMode("local-wiki")).toBe(PERSONAL_DOC_TYPES);
   });
 });
 

@@ -1,3 +1,5 @@
+import type { OpenWikiOutputMode } from "./agent/types.js";
+
 export const OPEN_WIKI_DIR = "openwiki";
 export const UPDATE_METADATA_PATH = `${OPEN_WIKI_DIR}/.last-update.json`;
 export const OKF_STATE_PATH = `${OPEN_WIKI_DIR}/.okf-state.json`;
@@ -325,23 +327,21 @@ const REPO_DOC_TYPE_NAME_PATTERN = /^[A-Za-z][A-Za-z ]*$/u;
 const REPO_DOC_TYPE_DIRECTORY_PATTERN = /^[a-z][a-z-]*$/u;
 
 /**
- * Validates `REPO_DOC_TYPES` entries at module load so that only plain
+ * Validates a taxonomy's `types` entries at module load so that only plain
  * alphabetic labels and lowercase kebab-case directories (or the root
  * directory, represented by "") can ever reach a prompt or frontmatter.
  */
-function assertSanitizedRepoDocTypes(
+function assertSanitizedDocTypes(
   types: Record<string, string>,
 ): Readonly<Record<string, string>> {
   for (const [type, directory] of Object.entries(types)) {
     if (!REPO_DOC_TYPE_NAME_PATTERN.test(type)) {
-      throw new Error(
-        `Invalid REPO_DOC_TYPES type label: ${JSON.stringify(type)}`,
-      );
+      throw new Error(`Invalid doc type label: ${JSON.stringify(type)}`);
     }
 
     if (directory !== "" && !REPO_DOC_TYPE_DIRECTORY_PATTERN.test(directory)) {
       throw new Error(
-        `Invalid REPO_DOC_TYPES directory for ${JSON.stringify(type)}: ` +
+        `Invalid doc type directory for ${JSON.stringify(type)}: ` +
           JSON.stringify(directory),
       );
     }
@@ -351,13 +351,29 @@ function assertSanitizedRepoDocTypes(
 }
 
 /**
- * Default OKF type taxonomy (§4.4): maps each documentation type to the
- * bundle directory it applies to. The "Repository Overview" type applies to
- * the bundle root, so its directory is "". Adding a new type is a one-line
- * change.
+ * A pluggable OKF type taxonomy (§4.4): maps each documentation type to the
+ * bundle directory it applies to, plus the non-empty type used when a page's
+ * directory matches no entry. Adding a new type is a one-line change.
  */
-export const REPO_DOC_TYPES: Readonly<Record<string, string>> =
-  assertSanitizedRepoDocTypes({
+export type DocTypeTaxonomy = {
+  types: Readonly<Record<string, string>>;
+  fallback: string;
+};
+
+function createDocTypeTaxonomy(
+  types: Record<string, string>,
+  fallback: string,
+): DocTypeTaxonomy {
+  return { types: assertSanitizedDocTypes(types), fallback };
+}
+
+/**
+ * Code-documentation taxonomy used for `code` mode (output mode
+ * `repository`). The "Repository Overview" type applies to the bundle root,
+ * so its directory is "".
+ */
+export const CODE_DOC_TYPES: DocTypeTaxonomy = createDocTypeTaxonomy(
+  {
     "Repository Overview": "",
     Architecture: "architecture",
     Workflow: "workflows",
@@ -368,29 +384,77 @@ export const REPO_DOC_TYPES: Readonly<Record<string, string>> =
     Integration: "integrations",
     Testing: "testing",
     Reference: "reference",
-  });
-
-export const REPO_DOC_TYPE_FALLBACK = "Reference";
-
-const DIRECTORY_TO_REPO_DOC_TYPE: ReadonlyMap<string, string> = new Map(
-  Object.entries(REPO_DOC_TYPES).map(([type, directory]) => [directory, type]),
+  },
+  "Reference",
 );
 
 /**
- * Inverts {@link REPO_DOC_TYPES} to infer a page's `type` from the top-level
- * directory it lives in. Directories with no taxonomy entry resolve to
- * {@link REPO_DOC_TYPE_FALLBACK} with `isFallback: true`, so callers can flag
- * the classification in a conformance report instead of leaving `type` empty.
+ * Minimal personal-knowledge taxonomy used for `personal` mode (output mode
+ * `local-wiki`), matching the canonical personal-wiki surfaces (quickstart
+ * and other root files, sources, topics).
  */
-export function getRepoDocTypeForDirectory(directory: string): {
+export const PERSONAL_DOC_TYPES: DocTypeTaxonomy = createDocTypeTaxonomy(
+  {
+    Overview: "",
+    Source: "sources",
+    Topic: "topics",
+  },
+  "Note",
+);
+
+const directoryLookupCache = new WeakMap<
+  DocTypeTaxonomy,
+  ReadonlyMap<string, string>
+>();
+
+function getDirectoryToTypeMap(
+  taxonomy: DocTypeTaxonomy,
+): ReadonlyMap<string, string> {
+  const cached = directoryLookupCache.get(taxonomy);
+
+  if (cached) {
+    return cached;
+  }
+
+  const directoryToType = new Map(
+    Object.entries(taxonomy.types).map(([type, directory]) => [
+      directory,
+      type,
+    ]),
+  );
+
+  directoryLookupCache.set(taxonomy, directoryToType);
+
+  return directoryToType;
+}
+
+/**
+ * Inverts a taxonomy's `types` to infer a page's `type` from the top-level
+ * directory it lives in. Directories with no taxonomy entry resolve to the
+ * taxonomy's `fallback` with `isFallback: true`, so callers can flag the
+ * classification in a conformance report instead of leaving `type` empty.
+ */
+export function getDocTypeForDirectory(
+  taxonomy: DocTypeTaxonomy,
+  directory: string,
+): {
   type: string;
   isFallback: boolean;
 } {
-  const type = DIRECTORY_TO_REPO_DOC_TYPE.get(directory);
+  const type = getDirectoryToTypeMap(taxonomy).get(directory);
 
   return type === undefined
-    ? { type: REPO_DOC_TYPE_FALLBACK, isFallback: true }
+    ? { type: taxonomy.fallback, isFallback: true }
     : { type, isFallback: false };
+}
+
+/**
+ * Selects the OKF type taxonomy for a run mode. Output mode `repository`
+ * (`code` mode) uses {@link CODE_DOC_TYPES}; `local-wiki` (`personal` mode)
+ * uses {@link PERSONAL_DOC_TYPES}.
+ */
+export function getTaxonomyForMode(mode: OpenWikiOutputMode): DocTypeTaxonomy {
+  return mode === "repository" ? CODE_DOC_TYPES : PERSONAL_DOC_TYPES;
 }
 
 export function resolveProviderRetryAttempts(
