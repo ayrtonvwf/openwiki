@@ -12,9 +12,9 @@ openwiki_update:
   script:
     # Add --okf to have OpenWiki stamp OKF-conformant frontmatter and
     # regenerate openwiki/index.md and openwiki/log.md on every update.
-    - openwiki --update --print
+    - openwiki code --update --print
     # Optional: gate this pipeline on OKF conformance (requires --okf above).
-    # - openwiki --okf-check
+    # - openwiki code --okf-check
     - |
       if git diff --quiet -- openwiki; then
         echo "OpenWiki is already up to date."
