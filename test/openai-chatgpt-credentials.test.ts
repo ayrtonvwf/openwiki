@@ -1,4 +1,15 @@
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+
+// Keep the suite hermetic: `needsCredentialSetup` folds in personal-mode
+// onboarding completeness, which otherwise reads the developer's real
+// ~/.openwiki/onboarding.json. Pin it complete so these tests exercise only
+// the credential-step logic they are about.
+vi.mock("../src/onboarding.ts", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/onboarding.ts")>();
+
+  return { ...actual, isOpenWikiOnboardingCompleteSync: () => true };
+});
+
 import {
   getInitialStep,
   getNextStepAfterProvider,
