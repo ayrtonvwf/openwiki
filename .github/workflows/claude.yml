@@ -82,6 +82,32 @@ jobs:
           claude_args: |
             --model claude-sonnet-5 --allowedTools "Bash(pnpm install:*),Bash(pnpm run format:*),Bash(pnpm run lint:*),Bash(pnpm run typecheck:*),Bash(pnpm run build:*),Bash(pnpm run coverage:*),Bash(pnpm test:*),Bash(pnpm run test:*),Bash(pnpm exec lint-staged:*),Bash(pnpm exec prettier:*),Bash(pnpm exec eslint:*),Bash(npx prettier:*),Bash(npx eslint:*),Bash(prettier:*),Bash(eslint:*),Bash(openspec:*),Bash(pnpm openspec:*),Bash(pnpm run openspec:*),Bash(npx openspec:*),Bash(mkdir:*),Bash(mv:*),Bash(gh pr create:*),Bash(gh pr edit:*),Bash(gh pr comment:*),Bash(gh pr view:*)"
 
+      # The husky pre-commit hook runs lint-staged inside Claude's sandboxed Bash tool,
+      # which can require an approval Claude has no one to grant, so its prettier/eslint
+      # fixers silently no-op and commits land unformatted (see PR #16). This step is the
+      # real backstop: it runs as a plain CI step (not sandboxed), reformats whatever
+      # Claude ended up committing, and pushes a fixup commit if anything changed. Skipped
+      # on the default branch so a @claude mention on main/an issue can never auto-push.
+      # NOTE: mirrored in the claude-opus job below — keep both identical.
+      - name: Format and push any remaining changes
+        run: |
+          current_branch=$(git rev-parse --abbrev-ref HEAD)
+          if [ "$current_branch" = "${{ github.event.repository.default_branch }}" ]; then
+            echo "On default branch, skipping auto-format-and-push."
+            exit 0
+          fi
+          pnpm run format
+          pnpm run lint || true
+          if git diff --quiet; then
+            echo "No formatting changes needed."
+          else
+            git config user.name "claude[bot]"
+            git config user.email "41898282+claude[bot]@users.noreply.github.com"
+            git add -A
+            git commit -m "style: auto-format via CI"
+            git push origin "HEAD:$current_branch"
+          fi
+
   claude-opus:
     if: |
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude-opus')) ||
@@ -149,3 +175,29 @@ jobs:
           # NOTE: allowlist mirrored in the claude job above — keep both identical.
           claude_args: |
             --model claude-opus-4-8 --allowedTools "Bash(pnpm install:*),Bash(pnpm run format:*),Bash(pnpm run lint:*),Bash(pnpm run typecheck:*),Bash(pnpm run build:*),Bash(pnpm run coverage:*),Bash(pnpm test:*),Bash(pnpm run test:*),Bash(pnpm exec lint-staged:*),Bash(pnpm exec prettier:*),Bash(pnpm exec eslint:*),Bash(npx prettier:*),Bash(npx eslint:*),Bash(prettier:*),Bash(eslint:*),Bash(openspec:*),Bash(pnpm openspec:*),Bash(pnpm run openspec:*),Bash(npx openspec:*),Bash(mkdir:*),Bash(mv:*),Bash(gh pr create:*),Bash(gh pr edit:*),Bash(gh pr comment:*),Bash(gh pr view:*)"
+
+      # The husky pre-commit hook runs lint-staged inside Claude's sandboxed Bash tool,
+      # which can require an approval Claude has no one to grant, so its prettier/eslint
+      # fixers silently no-op and commits land unformatted (see PR #16). This step is the
+      # real backstop: it runs as a plain CI step (not sandboxed), reformats whatever
+      # Claude ended up committing, and pushes a fixup commit if anything changed. Skipped
+      # on the default branch so a @claude mention on main/an issue can never auto-push.
+      # NOTE: mirrored in the claude job above — keep both identical.
+      - name: Format and push any remaining changes
+        run: |
+          current_branch=$(git rev-parse --abbrev-ref HEAD)
+          if [ "$current_branch" = "${{ github.event.repository.default_branch }}" ]; then
+            echo "On default branch, skipping auto-format-and-push."
+            exit 0
+          fi
+          pnpm run format
+          pnpm run lint || true
+          if git diff --quiet; then
+            echo "No formatting changes needed."
+          else
+            git config user.name "claude[bot]"
+            git config user.email "41898282+claude[bot]@users.noreply.github.com"
+            git add -A
+            git commit -m "style: auto-format via CI"
+            git push origin "HEAD:$current_branch"
+          fi
