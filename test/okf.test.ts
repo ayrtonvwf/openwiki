@@ -1,6 +1,7 @@
 import {
   mkdir,
   mkdtemp,
+  readdir,
   readFile,
   rm,
   stat,
@@ -8,6 +9,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 import {
   buildFrontmatter,
@@ -20,9 +22,15 @@ import {
   runOkfPass,
   splitFrontmatter,
   stampPage,
+  verifyOkfConformance,
   type OkfState,
   type PageStampResult,
 } from "../src/agent/okf.ts";
+
+const OKF_FIXTURES_ROOT = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../src/agent/__fixtures__/okf",
+);
 
 describe("splitFrontmatter", () => {
   test("splits a well-formed frontmatter block from the body", () => {
@@ -731,5 +739,104 @@ describe("runOkfPass", () => {
     const stampedTwice = await readFile(overviewPath, "utf8");
 
     expect(stampedTwice).toBe(stampedOnce);
+  });
+});
+
+async function listFilesRecursively(dir: string): Promise<string[]> {
+  const entries = await readdir(dir, { withFileTypes: true });
+  const files: string[] = [];
+
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+
+    if (entry.isDirectory()) {
+      files.push(...(await listFilesRecursively(fullPath)));
+    } else {
+      files.push(fullPath);
+    }
+  }
+
+  return files;
+}
+
+describe("verifyOkfConformance", () => {
+  test("reports a pass on the conformant fixture and does not modify any file", async () => {
+    const bundleRoot = path.join(OKF_FIXTURES_ROOT, "conformant");
+    const files = await listFilesRecursively(bundleRoot);
+    const before = await Promise.all(
+      files.map(async (file) => ({
+        file,
+        content: await readFile(file, "utf8"),
+        mtimeMs: (await stat(file)).mtimeMs,
+      })),
+    );
+
+    const report = await verifyOkfConformance(bundleRoot);
+
+    expect(report).toEqual({ conformant: true, issues: [] });
+
+    for (const snapshot of before) {
+      expect(await readFile(snapshot.file, "utf8")).toBe(snapshot.content);
+      expect((await stat(snapshot.file)).mtimeMs).toBe(snapshot.mtimeMs);
+    }
+  });
+
+  test("reports the expected issue on each nonconformant variant without repairing it", async () => {
+    const missingFrontmatterReport = await verifyOkfConformance(
+      path.join(OKF_FIXTURES_ROOT, "nonconformant/missing-frontmatter"),
+    );
+    expect(missingFrontmatterReport.conformant).toBe(false);
+    expect(missingFrontmatterReport.issues).toContainEqual(
+      expect.objectContaining({
+        file: "architecture/overview.md",
+        message: "missing frontmatter block",
+        severity: "error",
+      }),
+    );
+
+    const emptyTypeReport = await verifyOkfConformance(
+      path.join(OKF_FIXTURES_ROOT, "nonconformant/empty-type"),
+    );
+    expect(emptyTypeReport.conformant).toBe(false);
+    expect(emptyTypeReport.issues).toContainEqual(
+      expect.objectContaining({
+        file: "architecture/overview.md",
+        message: "missing non-empty type field",
+        severity: "error",
+      }),
+    );
+
+    const unparseableReport = await verifyOkfConformance(
+      path.join(OKF_FIXTURES_ROOT, "nonconformant/unparseable"),
+    );
+    expect(unparseableReport.conformant).toBe(false);
+    expect(unparseableReport.issues).toContainEqual(
+      expect.objectContaining({
+        file: "architecture/overview.md",
+        message: "frontmatter block is not valid YAML",
+        severity: "error",
+      }),
+    );
+
+    expect(
+      await readFile(
+        path.join(
+          OKF_FIXTURES_ROOT,
+          "nonconformant/missing-frontmatter/openwiki/architecture/overview.md",
+        ),
+        "utf8",
+      ),
+    ).toBe("# Overview\n\nDescribes the system architecture.\n");
+  });
+
+  test("a bundle freshly produced by runOkfPass passes verifyOkfConformance with zero issues", async () => {
+    const repo = await createOpenWikiFixture();
+
+    await runOkfPass(repo, TEST_RUN_INFO);
+
+    expect(await verifyOkfConformance(repo)).toEqual({
+      conformant: true,
+      issues: [],
+    });
   });
 });

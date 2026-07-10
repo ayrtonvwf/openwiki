@@ -27,6 +27,8 @@ jobs:
         run: npm install --global openwiki
 
       - name: Run OpenWiki
+        # Add --okf to have OpenWiki stamp OKF-conformant frontmatter and
+        # regenerate openwiki/index.md and openwiki/log.md on every update.
         run: openwiki --update --print
         env:
           # TODO: Replace with your preferred inference provider and model
@@ -35,6 +37,10 @@ jobs:
           LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
           LANGCHAIN_PROJECT: openwiki
           LANGCHAIN_TRACING_V2: "true"
+
+      # Optional: gate this workflow on OKF conformance (requires --okf above).
+      # - name: Check OKF conformance
+      #   run: openwiki --okf-check
 
       - name: Create OpenWiki update pull request
         uses: peter-evans/create-pull-request@v7

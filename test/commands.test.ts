@@ -196,6 +196,26 @@ describe("parseCommand — --okf / --no-okf", () => {
   });
 });
 
+describe("parseCommand — --okf-check", () => {
+  test("defaults to false when not passed", () => {
+    expect(parseCommand([])).toMatchObject({ okfCheck: false });
+  });
+
+  test("--okf-check sets okfCheck to true", () => {
+    expect(parseCommand(["--okf-check"])).toMatchObject({
+      kind: "run",
+      okfCheck: true,
+    });
+  });
+
+  test("is independent of --okf / --no-okf", () => {
+    expect(parseCommand(["--okf-check", "--no-okf"])).toMatchObject({
+      okfCheck: true,
+      okf: false,
+    });
+  });
+});
+
 describe("parseCommand — unknown options and dry-run gating", () => {
   test("an unknown --flag is an error", () => {
     const result = parseCommand(["--nope"]);

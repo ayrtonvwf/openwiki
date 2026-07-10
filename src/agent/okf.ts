@@ -758,3 +758,77 @@ export async function runOkfPass(
     issues,
   };
 }
+
+/**
+ * Repair-disabled counterpart to `runOkfPass`: inspects the bundle exactly as
+ * it exists on disk and never calls `stampPage` or `writeIfChanged`, so a
+ * missing/invalid frontmatter block or malformed reserved file is reported
+ * rather than repaired. Uses the same leaf check helpers (`checkIndexStructure`,
+ * `checkLogStructure`, and the frontmatter/field checks below) that `stampPage`
+ * must satisfy in the generate pass, so the two entry points are kept aligned
+ * on what "conformant" means without duplicating the validation logic.
+ */
+export async function verifyOkfConformance(
+  cwd: string,
+): Promise<OkfConformanceReport> {
+  const openWikiDir = path.join(cwd, OPEN_WIKI_DIR);
+  const relativePaths = await walkOpenWikiMarkdownFiles(cwd);
+  const issues: OkfConformanceIssue[] = [];
+  let hasRootIndex = false;
+
+  for (const relativePath of relativePaths) {
+    const content = await readFile(
+      path.join(openWikiDir, relativePath),
+      "utf8",
+    );
+
+    if (isRootIndex(relativePath)) {
+      hasRootIndex = true;
+    }
+
+    if (isReservedOkfFileName(relativePath)) {
+      const issue = isLogFile(relativePath)
+        ? checkLogStructure(relativePath, content)
+        : checkIndexStructure(relativePath, content);
+
+      if (issue) {
+        issues.push({ file: relativePath, message: issue, severity: "error" });
+      }
+
+      continue;
+    }
+
+    const missingFieldsIssue = findMissingOkfFields(content);
+
+    if (missingFieldsIssue) {
+      issues.push({
+        file: relativePath,
+        message: missingFieldsIssue,
+        severity: "error",
+      });
+    }
+
+    const invalidFrontmatterIssue = findInvalidFrontmatter(content);
+
+    if (invalidFrontmatterIssue) {
+      issues.push({
+        file: relativePath,
+        message: invalidFrontmatterIssue,
+        severity: "error",
+      });
+    }
+  }
+
+  if (!hasRootIndex) {
+    issues.push({
+      file: "index.md",
+      message: "missing root index.md",
+      severity: "error",
+    });
+  }
+
+  return {
+    conformant: issues.every((issue) => issue.severity !== "error"),
+    issues,
+  };
+}

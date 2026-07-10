@@ -104,6 +104,30 @@ Base URLs (and all credentials) can be set in your environment or stored in `~/.
 
 If there's an inference provider or model you'd like to see added, please open a PR!
 
+## OKF output
+
+[OKF](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md) (the Open Knowledge Format) is an optional, code-owned frontmatter convention: when enabled, OpenWiki stamps every page it writes with a `type`, `title`, `description`, and `timestamp` (preserving any other frontmatter a page already carries), regenerates a root `openwiki/index.md`, and appends a dated entry to `openwiki/log.md`. See [specs/openwiki-okf-implementation-report.md](./specs/openwiki-okf-implementation-report.md) for the full design.
+
+Enable it with `--okf` (disable with `--no-okf`), or set it for every run with the `OPENWIKI_OKF` environment variable (`1`/`true`, case-insensitive). A flag on the command line always wins over the env key, which wins over the default (off):
+
+```sh
+openwiki --okf --update
+```
+
+```bash
+OPENWIKI_OKF=1
+```
+
+`index.md` and `log.md` are reserved: they are fully code-generated and should not be hand-edited. The root `index.md` declares `okf_version: "0.1"` in its frontmatter; every other page's `type` is drawn from a fixed taxonomy keyed off its top-level directory (Repository Overview, Architecture, Workflow, Domain Concept, API Reference, Data Model, Operations, Integration, Testing, Reference — unrecognized directories fall back to Reference and are flagged as a warning, not a failure).
+
+Because the code — not the model — owns the frontmatter block, a bundle produced with `--okf` is machine-verifiable: run `openwiki --okf-check` to inspect an existing bundle for conformance without generating or repairing anything. It exits `0` when every page carries valid frontmatter and the reserved files are well-formed, and exits non-zero (printing which files failed and why) otherwise — making it a drop-in gate for a scheduled CI run:
+
+```sh
+openwiki --okf-check
+```
+
+`--okf-check` is standalone: it runs the conformance check and exits without starting the documentation agent, so any other flags or a message passed alongside it (`--init`, `--update`, `--modelId`, etc.) are ignored.
+
 ## Contributing
 
 Contributions are welcome! Please read [CONTRIBUTING.md](./CONTRIBUTING.md) before opening a PR. We intentionally keep PRs tightly scoped to one change each, and PRs that bundle unrelated changes may be closed with a request to split them.

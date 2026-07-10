@@ -10,7 +10,11 @@ openwiki_update:
     - git config user.name "${GITLAB_USER_NAME:-OpenWiki Bot}"
     - git config user.email "${GITLAB_USER_EMAIL:-openwiki@example.com}"
   script:
+    # Add --okf to have OpenWiki stamp OKF-conformant frontmatter and
+    # regenerate openwiki/index.md and openwiki/log.md on every update.
     - openwiki --update --print
+    # Optional: gate this pipeline on OKF conformance (requires --okf above).
+    # - openwiki --okf-check
     - |
       if git diff --quiet -- openwiki; then
         echo "OpenWiki is already up to date."
