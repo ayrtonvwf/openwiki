@@ -319,6 +319,9 @@ export function stampPage(
   relativePath: string,
   rawContent: string,
   now: string,
+  // Default is a test-only convenience for callers that don't care about
+  // mode; production always passes the mode-derived taxonomy explicitly
+  // (see runOkfPass's caller in agent/index.ts).
   taxonomy: DocTypeTaxonomy = CODE_DOC_TYPES,
   priorState?: OkfPageState,
 ): PageStampResult {
@@ -673,6 +676,9 @@ async function buildUpdatedLog(
 export async function runOkfPass(
   cwd: string,
   runInfo: { command: OpenWikiCommand; changeSummary: string },
+  // Default is a test-only convenience for callers that don't care about
+  // mode; production always passes the mode-derived taxonomy explicitly
+  // (see the call site in agent/index.ts).
   taxonomy: DocTypeTaxonomy = CODE_DOC_TYPES,
 ): Promise<OkfConformanceReport> {
   const now = new Date().toISOString();

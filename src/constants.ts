@@ -323,8 +323,8 @@ export function resolveOkfEnabled(
   return value === "1" || value === "true";
 }
 
-const REPO_DOC_TYPE_NAME_PATTERN = /^[A-Za-z][A-Za-z ]*$/u;
-const REPO_DOC_TYPE_DIRECTORY_PATTERN = /^[a-z][a-z-]*$/u;
+const DOC_TYPE_NAME_PATTERN = /^[A-Za-z][A-Za-z ]*$/u;
+const DOC_TYPE_DIRECTORY_PATTERN = /^[a-z][a-z-]*$/u;
 
 /**
  * Validates a taxonomy's `types` entries at module load so that only plain
@@ -335,11 +335,11 @@ function assertSanitizedDocTypes(
   types: Record<string, string>,
 ): Readonly<Record<string, string>> {
   for (const [type, directory] of Object.entries(types)) {
-    if (!REPO_DOC_TYPE_NAME_PATTERN.test(type)) {
+    if (!DOC_TYPE_NAME_PATTERN.test(type)) {
       throw new Error(`Invalid doc type label: ${JSON.stringify(type)}`);
     }
 
-    if (directory !== "" && !REPO_DOC_TYPE_DIRECTORY_PATTERN.test(directory)) {
+    if (directory !== "" && !DOC_TYPE_DIRECTORY_PATTERN.test(directory)) {
       throw new Error(
         `Invalid doc type directory for ${JSON.stringify(type)}: ` +
           JSON.stringify(directory),

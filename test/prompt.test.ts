@@ -2,6 +2,14 @@ import { describe, expect, test } from "vitest";
 import { createSystemPrompt } from "../src/agent/prompt.ts";
 import { CODE_DOC_TYPES, PERSONAL_DOC_TYPES } from "../src/constants.ts";
 
+function extractOkfContractSection(prompt: string): string {
+  const start = prompt.indexOf("OKF output contract (--okf):");
+
+  expect(start).toBeGreaterThanOrEqual(0);
+
+  return prompt.slice(start);
+}
+
 describe("createSystemPrompt", () => {
   const commands = ["chat", "init", "update"] as const;
 
@@ -74,11 +82,12 @@ describe("createSystemPrompt", () => {
         okf: true,
         outputMode: "local-wiki",
       });
+      const section = extractOkfContractSection(prompt);
 
-      expect(prompt).toContain("Source");
-      expect(prompt).toContain("Topic");
-      expect(prompt).not.toContain("Architecture");
-      expect(prompt).not.toContain("Data Model");
+      expect(section).toContain("Source");
+      expect(section).toContain("Topic");
+      expect(section).not.toContain("Architecture");
+      expect(section).not.toContain("Data Model");
     });
 
     test(`(${command}) OKF contract allows index.md alongside quickstart.md`, () => {
