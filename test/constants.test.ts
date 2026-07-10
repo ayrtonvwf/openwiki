@@ -228,9 +228,7 @@ describe("PERSONAL_DOC_TYPES", () => {
   });
 
   test("contains only sanitized labels and lowercase kebab-case directories", () => {
-    for (const [type, directory] of Object.entries(
-      PERSONAL_DOC_TYPES.types,
-    )) {
+    for (const [type, directory] of Object.entries(PERSONAL_DOC_TYPES.types)) {
       expect(type).toMatch(/^[A-Za-z][A-Za-z ]*$/u);
       expect(directory).toMatch(/^$|^[a-z][a-z-]*$/u);
     }
