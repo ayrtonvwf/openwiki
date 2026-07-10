@@ -22,6 +22,9 @@ async function createRepoWithOpenWiki(): Promise<string> {
   await git(repo, ["init"]);
   await git(repo, ["config", "user.email", "test@example.com"]);
   await git(repo, ["config", "user.name", "OpenWiki Test"]);
+  // Keep the fixture hermetic: don't inherit a developer's global
+  // commit.gpgsign, which fails in the non-TTY test runner.
+  await git(repo, ["config", "commit.gpgsign", "false"]);
   await writeFile(path.join(repo, "README.md"), "# Test Repo\n", "utf8");
   await mkdir(path.join(repo, "openwiki"));
   await writeFile(
