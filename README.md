@@ -6,8 +6,6 @@
 >
 > Just as important as the feature is _how it was built_: entirely with **Spec-Driven Development (SDD)** using [OpenSpec](https://github.com/Fission-AI/OpenSpec) and **Claude Code running in GitHub Actions**. Each capability was proposed as a spec, reviewed, then implemented and merged through automated PRs — the `openspec/` directory and this repo's PR history show the full trail.
 >
-> **For recruiters and reviewers:** this fork is a portfolio demonstration of driving a real, non-trivial feature into an existing production codebase through a disciplined, spec-first, AI-agent-in-CI workflow — not a maintained product. The upstream project is the real thing; the OKF work and the SDD process are the contributions on display here.
->
 > **Key files this change touched:**
 >
 > | File                                                                                                                                                                                   | Role in the OKF change                                                                                                                                                                                                            |
