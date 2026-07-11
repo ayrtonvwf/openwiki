@@ -31,7 +31,7 @@ The system SHALL serialize every frontmatter scalar value it writes using JSON e
 
 ### Requirement: Non-reserved pages are stamped with required OKF fields
 
-For every Markdown file under the OpenWiki output directory that is not a reserved file (`index.md`, `log.md`) and not the metadata file, the system SHALL stamp or refresh a frontmatter block containing at minimum a non-empty `type`, a `title`, a `description`, and a `timestamp`, replacing any previous frontmatter block for that page.
+For every Markdown file under the OpenWiki output directory that is not a reserved file (`index.md`, `log.md`) and not a machine-state file, the system SHALL stamp or refresh a frontmatter block containing at minimum a non-empty `type`, a `title`, a `description`, and a `timestamp`. The system SHALL recompute the code-managed fields (`type`, `title`, `description`, `timestamp`) from the current page on every run, and SHALL preserve any other keys present in the page's prior frontmatter rather than dropping them (see the producer-added-key requirement). Serialized frontmatter SHALL use a deterministic key ordering so that re-stamping an unchanged page yields byte-for-byte identical output.
 
 #### Scenario: Page has no frontmatter before an --okf run
 
@@ -41,21 +41,7 @@ For every Markdown file under the OpenWiki output directory that is not a reserv
 #### Scenario: Page already has a stale frontmatter block
 
 - **WHEN** an `--okf` run completes and a page already carries a frontmatter block from a prior run
-- **THEN** the system SHALL recompute and overwrite `type`, `title`, and `description` from the current body content rather than preserving the stale values
-
-### Requirement: Type is inferred from directory via the repository documentation taxonomy
-
-The system SHALL infer a page's `type` field from the top-level directory (relative to the OpenWiki output root) it resides in, using the existing type-to-directory taxonomy. A page in a directory with no matching taxonomy entry SHALL still receive a non-empty `type` via a defined fallback value, and SHALL be recorded as a fallback classification in the conformance report.
-
-#### Scenario: Page in a recognized taxonomy directory
-
-- **WHEN** a page lives at `openwiki/operations/credentials-and-updates.md`
-- **THEN** its stamped `type` SHALL be `"Operations"`
-
-#### Scenario: Page in an unrecognized directory
-
-- **WHEN** a page lives in a directory that does not match any taxonomy entry
-- **THEN** the system SHALL stamp a non-empty fallback `type` on that page and SHALL include an entry in the conformance report noting the fallback classification
+- **THEN** the system SHALL recompute and overwrite `type`, `title`, and `description` from the current body content, while preserving any non-managed keys the block already contained
 
 ### Requirement: Title and description are derived deterministically
 
@@ -124,12 +110,22 @@ When a non-reserved page is missing a frontmatter block, missing a `type` field,
 
 ### Requirement: Frontmatter timestamp is preserved within same-run idempotent reruns
 
-The system SHALL preserve a page's existing `timestamp` value whenever a valid prior `timestamp` is already present in that page's frontmatter, and SHALL only assign a new `timestamp` when no valid prior value exists. This phase scopes the rule to same-run idempotence (a rerun with no intervening edits must not change any `timestamp`); detecting a genuine cross-run body edit and assigning a fresh `timestamp` for it requires persisting a body-content hash across runs, which is deferred to Phase 4 (see design.md's Non-Goals).
+The system SHALL assign a page's frontmatter `timestamp` based on whether the page's body content has genuinely changed since it was last stamped, determined by comparing a persisted hash of the page body (the content excluding the frontmatter block) against the current body. When the persisted body hash matches the current body, the system SHALL preserve the previously assigned `timestamp`; when the body has changed, or the page has no persisted body hash, the system SHALL assign the current run's ISO-8601 `timestamp`. As a migration case, when there is no persisted state for a page but the page's existing frontmatter already carries a valid `timestamp`, the system SHALL preserve that existing value (seeding persisted state from it) rather than assigning a new one. Same-run reruns with no intervening edits SHALL therefore leave every `timestamp` unchanged and rewrite no files.
 
 #### Scenario: Rerunning the pass with no content changes
 
 - **WHEN** the OKF pass runs twice in succession with no intervening edits to any page body
 - **THEN** every page's frontmatter, including `timestamp`, SHALL resolve to the same values on both runs, and no file SHALL be rewritten on disk as a result of the second run
+
+#### Scenario: A page body is edited between runs
+
+- **WHEN** a page's body is edited and the OKF pass runs again after a prior stamp recorded a different body hash for that page
+- **THEN** the system SHALL assign that page the current run's `timestamp`, while pages whose bodies were not edited SHALL retain their previously assigned `timestamp`
+
+#### Scenario: Upgrading a wiki stamped before persisted state existed
+
+- **WHEN** the OKF pass runs on a wiki whose pages were stamped by a prior version and no persisted OKF state file exists yet
+- **THEN** the system SHALL preserve each page's existing frontmatter `timestamp` (seeding persisted state from it) rather than reassigning every page a new `timestamp`
 
 ### Requirement: All mutations are written atomically
 
@@ -180,3 +176,64 @@ When conformance verification runs in strict/CI mode and the bundle is non-confo
 
 - **WHEN** strict conformance verification runs in a non-interactive/CI context and every non-reserved page is conformant
 - **THEN** the process SHALL exit with a zero status code and SHALL report an overall pass
+
+### Requirement: Producer-added frontmatter keys are preserved across re-stamps
+
+When re-stamping a page that already carries frontmatter, the system SHALL carry forward any keys that are not code-managed (keys other than `type`, `title`, `description`, and `timestamp`) into the newly written frontmatter block, in accordance with OKF round-trip guidance, rather than discarding them.
+
+#### Scenario: Prior frontmatter contains a producer-added key
+
+- **WHEN** a page's existing frontmatter contains a non-managed key (for example `resource` or a producer-specific key) and an `--okf` run re-stamps that page
+- **THEN** the rewritten frontmatter SHALL still contain that key with its prior value, alongside the recomputed managed fields
+
+### Requirement: OKF machine-state is persisted outside the conformance surface
+
+The system SHALL persist the per-page body hashes and assigned timestamps it uses for timestamp resolution in a machine-state file under the OpenWiki output directory. This state file SHALL be excluded from the content snapshot used for no-op detection and from the Markdown traversal that stamps and validates pages, so that its presence or contents can neither trigger a run nor break the content-snapshot no-op optimization, and it SHALL never be treated as a conformance-bearing page.
+
+#### Scenario: State file does not perturb no-op detection
+
+- **WHEN** the content snapshot of `openwiki/` is computed before and after an OKF pass that writes or updates the machine-state file
+- **THEN** the presence and contents of the machine-state file SHALL NOT be included in the snapshot, so a run whose only change would be the state file is still detected as a no-op
+
+#### Scenario: State file is not validated as a page
+
+- **WHEN** the OKF validation pass runs over the output directory
+- **THEN** the machine-state file SHALL NOT be parsed, stamped, or reported as missing a `type`, since it is not a Markdown page
+
+### Requirement: Change history is recorded in a reserved log.md
+
+When an `--okf` run changes OpenWiki content, the system SHALL record the change in a bundle-root `openwiki/log.md` reserved file structured as a flat, ISO-8601 date-grouped list of change entries in newest-first order, with no frontmatter block. The system SHALL derive each entry from information available to the run (the run command and its change/git summary), SHALL append to rather than discard existing history, and SHALL NOT rewrite `log.md` on a run that appends no new entry. `log.md` SHALL remain exempt from the `type` requirement as a reserved file.
+
+#### Scenario: A content-changing run records a log entry
+
+- **WHEN** an `--okf` run changes OpenWiki content
+- **THEN** the system SHALL prepend a dated entry describing that run to `openwiki/log.md`, preserving previously recorded entries below it in newest-first order, and SHALL NOT add a frontmatter block to `log.md`
+
+#### Scenario: log.md is exempt from the type requirement
+
+- **WHEN** the OKF validation pass inspects `openwiki/log.md`
+- **THEN** the validator SHALL NOT report a missing `type` on it, and SHALL confirm it carries no frontmatter block as required for a reserved non-index file
+
+### Requirement: Type is inferred from directory via the mode-selected documentation taxonomy
+
+The system SHALL infer a page's `type` field from the top-level directory (relative to the OpenWiki output root) it resides in, using a type-to-directory taxonomy selected from the run mode. The system SHALL use the code-documentation taxonomy for `code` mode (output mode `repository`) and a personal-knowledge taxonomy for `personal` mode (output mode `local-wiki`). A page in a directory with no matching entry in the selected taxonomy SHALL still receive a non-empty `type` via that taxonomy's defined fallback value, and SHALL be recorded as a fallback classification in the conformance report. The same selected taxonomy SHALL drive both the stamped `type` and the OKF directory contract presented in the system prompt, so the prompt's advertised directories match the types the pass will infer.
+
+#### Scenario: Code-mode page in a recognized taxonomy directory
+
+- **WHEN** an `--okf` run in `code` mode stamps a page at `openwiki/operations/credentials-and-updates.md`
+- **THEN** its stamped `type` SHALL be `"Operations"`, matching the code-documentation taxonomy that today's behavior uses
+
+#### Scenario: Personal-mode page in a recognized taxonomy directory
+
+- **WHEN** an `--okf` run in `personal` mode stamps a page in a directory that the personal taxonomy maps (e.g. `sources/`)
+- **THEN** its stamped `type` SHALL be the personal taxonomy's type for that directory (e.g. `"Source"`), not a code-documentation type such as `"Architecture"`
+
+#### Scenario: Page in an unrecognized directory
+
+- **WHEN** a page lives in a directory that does not match any entry in the taxonomy selected for the current mode
+- **THEN** the system SHALL stamp the selected taxonomy's non-empty fallback `type` on that page and SHALL include an entry in the conformance report noting the fallback classification
+
+#### Scenario: Prompt contract matches the mode's taxonomy
+
+- **WHEN** the OKF directory contract is rendered into the system prompt for a given mode
+- **THEN** the advertised type→directory list SHALL be exactly the taxonomy selected for that mode, so a model following the contract places pages where directory-based `type` inference will classify them without falling back

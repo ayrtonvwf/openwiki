@@ -6,5 +6,5 @@
 
 ## 2. Verification
 
-- [ ] 2.1 On `main`, mention `@claude-opus` on an issue/PR and confirm the run log shows a matched trigger and Opus-model activity (not a same-second no-op).
-- [ ] 2.2 Confirm `@claude` still runs Sonnet 5 with a matched trigger.
+- [x] 2.1 On `main`, mention `@claude-opus` on an issue/PR and confirm the run log shows a matched trigger and Opus-model activity (not a same-second no-op).
+- [x] 2.2 Confirm `@claude` still runs Sonnet 5 with a matched trigger.
